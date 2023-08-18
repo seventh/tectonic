@@ -200,6 +200,30 @@ class Grille:
                         retour.append(grille)
                     déjà.append(z)
 
+            # On tente de fusionner les deux zones
+            if (False and len(zones) == 2 and zones[0] != zones[1]):
+                if (len(self.zones[zones[0]].valeurs.intersection(
+                        self.zones[zones[1]].valeurs)) == 0
+                        and self.zones[zones[0]].bordure != 0
+                        and self.zones[zones[1]].bordure != 0):
+                    grille = copy.deepcopy(self)
+                    z1 = grille.zones[zones[0]]
+                    z2 = grille.zones[zones[1]]
+                    z1.bordure += z2.bordure
+                    z1.valeurs.update(z2.valeurs)
+                    grille.zones[zones[1]] = z1
+                    for case in grille.cases:
+                        if case.zone == zones[1]:
+                            case.zone = zones[0]
+                    valeurs = grille._valeurs_possibles(l, h, zones[0])
+                    for v in valeurs:
+                        g2 = copy.deepcopy(grille)
+                        g2.cases[i].case = v
+                        g2.cases[i].zone = zones[0]
+                        g2.zones[zones[0]].bordure -= 2
+                        g2.zones[zones[0]].valeurs.add(v)
+                        retour.append(g2)
+
             # On crée une nouvelle zone
             valeurs = self._valeurs_possibles(l, h, -1)
             for v in valeurs:
