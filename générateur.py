@@ -18,23 +18,25 @@ class Configuration:
     hauteur: int = 5
     largeur: int = 4
     maximum: int = 5
+    encodé: bool = False
 
     @staticmethod
     def charger():
         retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:")
+        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:s")
         for opt, val in opts:
-            if not val.isdecimal():
+            if opt == "-s":
+                retour.encodé = True
+            elif not val.isdecimal():
                 continue
             else:
                 val = int(val)
-
-            if opt == "-h" and val > 0:
-                retour.hauteur = val
-            elif opt == "-l" and val > 0:
-                retour.largeur = val
-            elif opt == "-m" and val > 2:
-                retour.maximum = val
+                if opt == "-h" and val > 0:
+                    retour.hauteur = val
+                elif opt == "-l" and val > 0:
+                    retour.largeur = val
+                elif opt == "-m" and val > 2:
+                    retour.maximum = val
         return retour
 
 
@@ -96,7 +98,8 @@ class Grille:
     def __repr__(self):
         lignes = list()
         for id, zone in enumerate(self.zones):
-            lignes.append(f"{id} → {zone.bordure} bord(s) libres")
+            if zone is not None:
+                lignes.append(f"{id} → {zone.bordure} bord(s) libres")
         return "\n".join(lignes)
 
     def __str__(self):
@@ -194,24 +197,30 @@ class Grille:
                         if l > 0 and h > 0 and len(zones) == 1:
                             zone.bordure -= 1
 
-                        for z2 in zones:
-                            grille.zones[z2].bordure -= 1
+                        for z1 in zones:
+                            grille.zones[z1].bordure -= 1
 
                         retour.append(grille)
                     déjà.append(z)
 
             # On tente de fusionner les deux zones
-            if (False and len(zones) == 2 and zones[0] != zones[1]):
+            if (True and len(zones) == 2 and zones[0] != zones[1]):
                 if (len(self.zones[zones[0]].valeurs.intersection(
                         self.zones[zones[1]].valeurs)) == 0
                         and self.zones[zones[0]].bordure != 0
                         and self.zones[zones[1]].bordure != 0):
                     grille = copy.deepcopy(self)
-                    z1 = grille.zones[zones[0]]
-                    z2 = grille.zones[zones[1]]
-                    z1.bordure += z2.bordure
-                    z1.valeurs.update(z2.valeurs)
-                    grille.zones[zones[1]] = z1
+                    z0 = grille.zones[zones[0]]
+                    z1 = grille.zones[zones[1]]
+                    # On fusionne les périmètres, on consomme 2 bords, on en
+                    # offre 2 (en général)
+                    z0.bordure += z1.bordure
+                    if l == self.conf.largeur - 1:
+                        grille.zones[zones[0]].bordure -= 1
+                    if h == self.conf.hauteur - 1:
+                        grille.zones[zones[0]].bordure -= 1
+                    z0.valeurs.update(z1.valeurs)
+                    grille.zones[zones[1]] = None
                     for case in grille.cases:
                         if case.zone == zones[1]:
                             case.zone = zones[0]
@@ -220,7 +229,6 @@ class Grille:
                         g2 = copy.deepcopy(grille)
                         g2.cases[i].case = v
                         g2.cases[i].zone = zones[0]
-                        g2.zones[zones[0]].bordure -= 2
                         g2.zones[zones[0]].valeurs.add(v)
                         retour.append(g2)
 
@@ -276,12 +284,13 @@ class Grille:
             if not self.cases[i].est_valorisée():
                 retour = False
                 break
+
         return retour
 
     def est_crédible(self):
         retour = True
         for zone in self.zones:
-            if zone.est_anormal():
+            if zone is not None and zone.est_anormal():
                 retour = False
                 break
         return retour
@@ -337,12 +346,13 @@ if __name__ == "__main__":
             if G.est_complète():
                 if False:
                     print(G.est_4_coloriable())
-                print(G)
-                if False:
-                    print(f"{G!r}")
-                print("")
-                if False:
-                    serial.décoder(serial.encoder(G))
+                if CONF.encodé:
+                    print(serial.encoder(G))
+                else:
+                    print(G)
+                    if False:
+                        print(f"{G!r}")
+                    print("")
             else:
                 N = G.prochains()
                 if False:
