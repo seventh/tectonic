@@ -20,6 +20,11 @@ class Configuration:
     maximum: int = 5
     encodé: bool = False
 
+    def __eq__(self, autre):
+        return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
+                and self.maximum == autre.maximum
+                and self.encodé == autre.encodé)
+
     @staticmethod
     def charger():
         retour = Configuration()
@@ -39,6 +44,23 @@ class Configuration:
                     retour.maximum = val
         return retour
 
+    def dimensions(self):
+        return Dimension(hauteur=self.hauteur,
+                         largeur=self.largeur,
+                         maximum=self.maximum)
+
+
+@dataclasses.dataclass
+class Dimension:
+
+    hauteur: int = 5
+    largeur: int = 4
+    maximum: int = 5
+
+    def __eq__(self, autre):
+        return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
+                and self.maximum == autre.maximum)
+
 
 @dataclasses.dataclass
 class Case:
@@ -47,6 +69,9 @@ class Case:
 
     zone: int = -1
     case: int = -1
+
+    def __eq__(self, autre):
+        return (self.zone == autre.zone and self.case == autre.case)
 
     def est_valorisée(self):
         return self.case != -1
@@ -59,6 +84,10 @@ class Zone:
 
     valeurs: set = dataclasses.field(default_factory=set)
     bordure: int = 2
+
+    def __eq__(self, autre):
+        return (self.valeurs == autre.valeurs
+                and self.bordure == autre.bordure)
 
     def est_anormal(self):
         """Une Zone est anormale si elle est fermée et ne contient pas toutes
@@ -94,6 +123,14 @@ class Grille:
                 self.cases.append(Case())
 
         self.zones = list()
+
+    def __eq__(self, autre):
+        retour = (self.conf == autre.conf and self.cases == autre.cases
+                  and self.zones == autre.zones)
+        return retour
+
+    def __hash__(self):
+        return hash(str(self))
 
     def __repr__(self):
         lignes = list()
@@ -152,6 +189,45 @@ class Grille:
 
     def en_index(self, largeur, hauteur):
         return self.conf.largeur * hauteur + largeur
+
+    def normaliser(self):
+        """Assure un ordre de numérotation entre Zones
+        """
+        logging.debug("Normalisation !")
+        logging.debug(self)
+        logging.debug(self.zones)
+        permutation = list()
+        for i in range(self.conf.largeur * self.conf.hauteur):
+            case = self.cases[i]
+            zone = case.zone
+            if zone != -1 and zone not in permutation:
+                permutation.append(zone)
+
+        utile = False
+        if len(self.zones) != len(permutation):
+            utile = True
+        else:
+            for après, avant in enumerate(permutation):
+                if après != avant:
+                    utile = True
+                    logging.debug("Cas pas évident")
+                    break
+
+        if utile:
+            for i in range(self.conf.largeur * self.conf.hauteur):
+                case = self.cases[i]
+                zone = case.zone
+                if zone != -1:
+                    case.zone = permutation.index(case.zone)
+            self.zones[:] = [self.zones[p] for p in permutation]
+        else:
+            logging.debug("appel de merde")
+
+        logging.debug("Fin de normalisation")
+        logging.debug(utile)
+        logging.debug(self)
+        logging.debug(self.zones)
+        logging.debug("===")
 
     def prochains(self):
         retour = list()
@@ -220,10 +296,18 @@ class Grille:
                     if h == self.conf.hauteur - 1:
                         grille.zones[zones[0]].bordure -= 1
                     z0.valeurs.update(z1.valeurs)
-                    grille.zones[zones[1]] = None
                     for case in grille.cases:
                         if case.zone == zones[1]:
                             case.zone = zones[0]
+                    if zones[1] == len(grille.zones) - 1:
+                        del grille.zones[zones[1]]
+                    else:
+                        grille.zones[zones[1]] = None
+                        logging.debug(grille)
+                        logging.debug(f"aaa {grille.zones}")
+                        grille.normaliser()
+                        logging.debug(f"bbb {grille.zones}")
+                        logging.debug(grille)
                     valeurs = grille._valeurs_possibles(l, h, zones[0])
                     for v in valeurs:
                         g2 = copy.deepcopy(grille)
@@ -331,32 +415,37 @@ class Grille:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     CONF = Configuration.charger()
     print(CONF)
-    GRILLES = [Grille(CONF)]
-    while len(GRILLES) != 0:
-        G = GRILLES.pop()
-        if G.est_crédible():
-            if G.est_complète():
-                if False:
-                    print(G.est_4_coloriable())
-                if CONF.encodé:
-                    print(serial.encoder(G))
-                else:
-                    print(G)
-                    if False:
-                        print(f"{G!r}")
-                    print("")
-            else:
-                N = G.prochains()
-                if False:
-                    for M in N:
-                        print(M)
-                        print(f"{M!r}")
-                        print("")
 
-                GRILLES.extend(N)
-                if False:
-                    print(len(GRILLES))
+    G = Grille(CONF.dimensions())
+    CODE = serial.encoder(G)
+    PALIER = {CODE}
+    ÉTAGE = set()
+
+    # Fixation d'une case à la fois
+    PALIER_MAX = CONF.largeur * CONF.hauteur
+    for ID_PALIER in range(PALIER_MAX):
+        logging.info(f"Palier n°{ID_PALIER} atteint : {len(PALIER)} grilles")
+        while len(PALIER) != 0:
+            CODE = PALIER.pop()
+            G = serial.décoder(CODE)
+            N = G.prochains()
+            for G in N:
+                if G.est_crédible():
+                    CODE = serial.encoder(G)
+                    ÉTAGE.add(CODE)
+        PALIER = ÉTAGE
+        ÉTAGE = set()
+
+    # Affichage final
+    logging.info(f"Palier n°{PALIER_MAX} atteint : {len(PALIER)} grilles")
+    PALIER = sorted(PALIER)
+    for CODE in PALIER:
+        if CONF.encodé:
+            print(CODE)
+        else:
+            G = serial.décoder(CODE)
+            print(G)
