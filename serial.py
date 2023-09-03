@@ -121,6 +121,10 @@ def décoder(code):
 
     assert code == 0
 
+    # Ici, on peut tenter de reconstituer les informations de bordure
+    # uniquement à partir des informations de case, pour les supprimer
+    # du Code
+
     logging.debug(f"Décodage\n{retour}\n{retour.zones}")
 
     return retour

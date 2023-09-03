@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!-- HTML 5 -->
+<HTML>
+  <HEAD>
+    <META charset="UTF-8"/>
+    <STYLE>
+      table {
+          text-align: center;
+      }
+      th {
+          border: 3px solid black;
+      }
+      td {
+          border: 1px solid black;
+      }
+      th, td {
+          border-radius: 10px;
+      }
+      .brousse {
+          border-color: green;
+      }
+      .eau {
+          border-color: blue;
+      }
+      .feu {
+          border-color: red;
+      }
+      .savane {
+          border-color: yellow;
+      }
+      .nu {
+          border: 0px;
+      }
+      .exploré, .planté {
+          border-width: 1px;
+      }
+      .nu, .exploré {
+          visibility: hidden;
+      }
+      .planté {
+          visibility: visible;
+      }
+    </STYLE>
+  </HEAD>
+  <BODY>
+    <TABLE>
+      <TBODY>
+        <TR>
+        <TD>Ne rien faire</TD>
+        <TD>Explorer</TD>
+        <TD>Diviner</TD>
+        </TR>
+      </TBODY>
+    </TABLE>
+    <TABLE>
+      <THEAD>
+        <TR>
+          <TD class="nu"/>
+          <TH> Phénix </TH>
+          <TH> Feu </TH>
+          <TD class="nu"/>
+        </TR>
+      </THEAD>
+      <TBODY>
+        <TR>
+          <TH> Alpaga </TH>
+          <TD class="feu exploré"> 1 </TD>
+          <TD class="eau planté"> 2 </TD>
+          <TH> Alpaga </TH>
+        </TR>
+        <TR>
+          <TH> Salamandre </TH>
+          <TD class="feu nu" onmouseover="explorer()" onmousequit="perdre()"> 1 </TD>
+          <TD class="feu exploré"> 1 </TD>
+          <TH> Salamandre </TH>
+        </TR>
+        <TR>
+          <TH> Crotale </TH>
+          <TD class="feu planté"> 1 </TD>
+          <TD class="feu nu"> 1 </TD>
+          <TH> Crotale </TH>
+        </TR>
+      </TBODY>
+      <TFOOT>
+        <TR>
+          <TD class="nu"/>
+          <TH> Phénix </TH>
+          <TH> Feu </TH>
+          <TD class="nu"/>
+        </TR>
+      </TFOOT>
+    </TABLE>
+    <SCRIPT>
+function explorer() {
+    document.getElement().innerHTML = "toto";
+}
+function perdre() {
+    document.getElement().innerHTML = "tata";
+}
+    </SCRIPT>
+  </BODY>
+</HTML>
