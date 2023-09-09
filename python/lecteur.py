@@ -8,9 +8,6 @@ import serial
 
 def lire(chemin):
     with open(chemin, "rt") as entrée:
-        ligne = entrée.readline()
-        print(ligne, end="")
-
         for ligne in entrée:
             code = int(ligne.strip())
             grille = serial.décoder(code)

@@ -5,8 +5,11 @@
 
 import copy
 import dataclasses
+import enum
 import getopt
 import logging
+import os.path
+import re
 import sys
 
 import serial
@@ -18,20 +21,23 @@ class Configuration:
     hauteur: int = 5
     largeur: int = 4
     maximum: int = 5
-    encodé: bool = False
+    encodé: bool = True
+    chemin: str = "../data"
+    enregistrement: bool = False
 
     def __eq__(self, autre):
         return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
                 and self.maximum == autre.maximum
-                and self.encodé == autre.encodé)
+                and self.encodé == autre.encodé and self.chemin == autre.chemin
+                and self.enregistrement == autre.enregistrement)
 
     @staticmethod
     def charger():
         retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:s")
+        opts, args = getopt.getopt(sys.argv[1:], "eh:l:m:")
         for opt, val in opts:
-            if opt == "-s":
-                retour.encodé = True
+            if opt == "-e":
+                retour.enregistrement = True
             elif not val.isdecimal():
                 continue
             else:
@@ -42,6 +48,9 @@ class Configuration:
                     retour.largeur = val
                 elif opt == "-m" and val > 2:
                     retour.maximum = val
+        if len(args) != 0:
+            retour.chemin = args[0]
+
         return retour
 
     def dimensions(self):
@@ -60,6 +69,16 @@ class Dimension:
     def __eq__(self, autre):
         return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
                 and self.maximum == autre.maximum)
+
+
+class Terrain(enum.IntEnum):
+    """Différentes natures de terrain, fidèles au jeu «Tiwanaku»
+    """
+
+    herbe = enum.auto()
+    roche = enum.auto()
+    sable = enum.auto()
+    terre = enum.auto()
 
 
 @dataclasses.dataclass
@@ -114,6 +133,7 @@ class Zone:
 
 
 class Grille:
+
     def __init__(self, conf):
         self.conf = conf
 
@@ -411,23 +431,61 @@ class Grille:
             logging.debug(f"{k} → {sorted(voisinage[k])}")
 
         # En attendant d'avoir une réponse fiable…
-        return True
+        couleurs = [None] * len(self.zones)
+        i = 0
+        while 0 <= i < len(self.zones):
+            possibles = set(Terrain)
+            for voisin in voisinage[i]:
+                if voisin < i:
+                    possibles.discard(couleurs[voisin])
+            possibles = sorted(possibles)
+            if len(possibles) == 0:
+                i -= 1
+            elif couleurs[i] is None:
+                couleurs[i] = possibles[0]
+                i += 1
+            else:
+                j = possibles.index(couleurs[i])
+                if j == len(possibles) - 1:
+                    i -= 1
+                else:
+                    couleurs[i] = possibles[j + 1]
+
+        if i == len(self.zones):
+            print(couleurs)
+
+        return i == len(self.zones)
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     CONF = Configuration.charger()
-    print(CONF)
+    logging.info(CONF)
 
     G = Grille(CONF.dimensions())
     CODE = serial.encoder(G)
     PALIER = {CODE}
     ÉTAGE = set()
+    ID_PALIER = 0
+    PRÉFIXE = f"h{CONF.hauteur}l{CONF.largeur}m{CONF.maximum}"
+
+    # Chargement du dernier palier
+    if CONF.enregistrement:
+        regex = re.compile(f"{PRÉFIXE}.palier_(\\d+).log")
+        _, _, fichiers = next(os.walk(CONF.chemin))
+        fichiers = sorted([f for f in fichiers if regex.match(f)])
+        if len(fichiers) != 0:
+            PALIER.clear()
+            with open(os.path.join(CONF.chemin, fichiers[-1]), "rt") as entrée:
+                for ligne in entrée:
+                    CODE = int(ligne.strip())
+                    PALIER.add(CODE)
+            ID_PALIER = int(regex.match(fichiers[-1]).group(1))
 
     # Fixation d'une case à la fois
     PALIER_MAX = CONF.largeur * CONF.hauteur
-    for ID_PALIER in range(PALIER_MAX):
+    while ID_PALIER < PALIER_MAX:
         logging.info(f"Palier n°{ID_PALIER} atteint : {len(PALIER)} grilles")
         while len(PALIER) != 0:
             CODE = PALIER.pop()
@@ -437,15 +495,29 @@ if __name__ == "__main__":
                 if G.est_crédible():
                     CODE = serial.encoder(G)
                     ÉTAGE.add(CODE)
+
+        if CONF.enregistrement:
+            chemin = os.path.join(CONF.chemin,
+                                  f"{PRÉFIXE}.palier_{ID_PALIER + 1}.log")
+            with open(chemin, "wt") as sortie:
+                for CODE in ÉTAGE:
+                    sortie.write(f"{CODE}\n")
+
         PALIER = ÉTAGE
         ÉTAGE = set()
+        ID_PALIER += 1
 
     # Affichage final
     logging.info(f"Palier n°{PALIER_MAX} atteint : {len(PALIER)} grilles")
     PALIER = sorted(PALIER)
-    for CODE in PALIER:
-        if CONF.encodé:
-            print(CODE)
-        else:
-            G = serial.décoder(CODE)
-            print(G)
+    if CONF.enregistrement:
+        with open(os.path.join(CONF.chemin, f"{PRÉFIXE}.log"), "wt") as SORTIE:
+            for CODE in sorted(PALIER):
+                SORTIE.write(f"{CODE}\n")
+    else:
+        for CODE in PALIER:
+            if CONF.encodé:
+                print(CODE)
+            else:
+                G = serial.décoder(CODE)
+                print(G)

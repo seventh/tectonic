@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<!-- HTML 5 -->
+<HTML>
+  <HEAD>
+    <META charset="UTF-8"/>
+    <STYLE>
+      table {
+          text-align: center;
+      }
+      th {
+          border: 3px solid black;
+      }
+      td {
+          border: 1px solid black;
+      }
+      th, td {
+          border-radius: 10px;
+      }
+
+      .herbe {
+          border-color: darkseagreen;
+      }
+      .roche {
+          border-color: steelblue;
+      }
+      .sable {
+          border-color: cornsilk;
+      }
+      .terre {
+          border-color: sienna;
+      }
+
+      .état_nu {
+          border: 0px;
+      }
+      .état_exploré, .état_planté {
+          border-width: 1px;
+      }
+      .état_nu, .état_exploré {
+          color: white;
+      }
+      .état_planté {
+          color: black;
+      }
+    </STYLE>
+  </HEAD>
+  <BODY>
+    <TABLE>
+      <THEAD>
+        <TR>
+          <TH class="état_nu"/>
+          <TH>Phénix</TH>
+          <TH>Nuage</TH>
+          <TH class="état_nu"/>
+        </TR>
+      </THEAD>
+      <TBODY>
+        <TR>
+          <TH>Alpaga</TH>
+          <TD id="h0l0" class="terre" état="exploré">1</TD>
+          <TD id="h0l1" class="roche" état="planté">2</TD>
+          <TH>Alpaga</TH>
+        </TR>
+        <TR>
+          <TH>Salamandre</TH>
+          <TD id="h1l0" class="terre" état="nu">1</TD>
+          <TD id="h1l1" class="herbe" état="exploré">1</TD>
+          <TH>Salamandre</TH>
+        </TR>
+        <TR>
+          <TH>Crotale</TH>
+          <TD id="h2l0" class="sable" état="planté">1</TD>
+          <TD id="h2l1" class="herbe" état="nu">1</TD>
+          <TH>Crotale</TH>
+        </TR>
+      </TBODY>
+      <TFOOT>
+        <TR>
+          <TH class="état_nu"/>
+          <TH>Phénix</TH>
+          <TH>Nuage</TH>
+          <TH class="état_nu"/>
+        </TR>
+      </TFOOT>
+    </TABLE>
+    <SCRIPT>
+// Post-initialisation : les éléments portant une étiquette «état» gagnent :
+//  - la classe correspondante
+//  - un gestionnaire d'événement «onclick»
+for (td of document.getElementsByTagName("TD")) {
+    let état = td.attributes.getNamedItem("état");
+    if (état != null) {
+        td.classList.add("état_" + état.nodeValue);
+        td.setAttribute("onclick", "progresser(this)");
+    }
+}
+
+
+function progresser(obj) {
+    let courant = obj.attributes["état"].nodeValue;
+    var suivant;
+    switch (courant) {
+    case "nu":
+        suivant = "exploré";
+        break;
+    case "exploré":
+        suivant = "planté";
+        break;
+    default:
+        suivant = "planté";
+    }
+    console.log(courant + "→" + suivant);
+
+    let classes = obj.classList;
+    classes.remove("état_" + courant);
+    classes.add("état_" + suivant);
+    obj.attributes["état"].nodeValue = suivant;
+}
+    </SCRIPT>
+  </BODY>
+</HTML>

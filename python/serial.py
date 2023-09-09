@@ -18,7 +18,6 @@ def encoder(grille):
     # Une valeur est réservée pour les cases dont la zone n'est pas encore
     # définie
     pad_zone = len(grille.zones) + 1
-    pad_bordure = 2 * (grille.conf.maximum + 1) + 1
 
     assert grille.conf.hauteur < pad_dimension
     assert grille.conf.largeur < pad_dimension
@@ -28,15 +27,6 @@ def encoder(grille):
     logging.debug(f"Encodage\n{grille}\n{grille.zones}")
 
     retour = 0
-
-    # Encodage des informations de zones
-    for z in reversed(range(len(grille.zones))):
-        zone = grille.zones[z]
-        retour *= pad_bordure
-        if zone is None:
-            retour += (pad_bordure - 1)
-        else:
-            retour += zone.bordure
 
     # Encodage de la grille elle-même
     for h in reversed(range(grille.conf.hauteur)):
@@ -111,20 +101,22 @@ def décoder(code):
                     retour.zones[zone] = générateur.Zone()
                 retour.zones[zone].valeurs.add(valeur)
 
-    # Décodage des informations par Zone
-    for z in range(nb_zones):
-        # Nombre de bordures pour la zone n°z
-        code, bordure = divmod(code, pad_bordure)
-        if bordure < pad_bordure - 1:
-            if retour.zones[z] is not None:
-                retour.zones[z].bordure = bordure
+    # Informations de bordure
+    # Le code est robuste au fait que celles-ci ne soient plus encodées
 
-    assert code == 0
-
-    # Ici, on peut tenter de reconstituer les informations de bordure
-    # uniquement à partir des informations de case, pour les supprimer
-    # du Code
-
-    logging.debug(f"Décodage\n{retour}\n{retour.zones}")
+    # RAPPEL : «bordures» est le nombre de bords libres de la zone
+    bordures = [0] * nb_zones
+    for h in range(conf.hauteur):
+        for l in range(conf.largeur):
+            i = retour.en_index(l, h)
+            z = retour.cases[i].zone
+            if z != -1:
+                for l2, h2 in [(l, h + 1), (l + 1, h)]:
+                    if (0 <= h2 < conf.hauteur and 0 <= l2 < conf.largeur):
+                        j = retour.en_index(l2, h2)
+                        if retour.cases[j].zone == -1:
+                            bordures[z] += 1
+    for i, z in enumerate(retour.zones):
+        z.bordure = bordures[i]
 
     return retour
