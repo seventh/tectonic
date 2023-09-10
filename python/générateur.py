@@ -432,26 +432,30 @@ class Grille:
 
         # En attendant d'avoir une réponse fiable…
         couleurs = [None] * len(self.zones)
-        i = 0
-        while 0 <= i < len(self.zones):
+        couleurs[0] = Terrain.herbe
+        i = 1
+        while 0 < i < len(self.zones):
             possibles = set(Terrain)
             for voisin in voisinage[i]:
                 if voisin < i:
                     possibles.discard(couleurs[voisin])
             possibles = sorted(possibles)
             if len(possibles) == 0:
+                couleurs[i] = None
                 i -= 1
             elif couleurs[i] is None:
                 couleurs[i] = possibles[0]
                 i += 1
             else:
                 j = possibles.index(couleurs[i])
-                if j == len(possibles) - 1:
-                    i -= 1
-                else:
+                if j + 1 < len(possibles):
                     couleurs[i] = possibles[j + 1]
+                    i += 1
+                else:
+                    couleurs[i] = None
+                    i -= 1
 
-        if i == len(self.zones):
+        if False and i == len(self.zones):
             print(couleurs)
 
         return i == len(self.zones)
