@@ -1,0 +1,9 @@
+= Tectonic
+
+== Stratégie de génération
+
+Ligne par ligne, colonne par colonne, une case à la fois (palier).
+
+Un résultat notable est qu'avec la sauvegarde des paliers intermédiaires,
+le palier L×(H-1)×M du problème (L, H, M) est le mếme que pour tous les
+problèmes (L, H+n, M) quelque soit n >= 0.
