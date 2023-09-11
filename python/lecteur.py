@@ -14,7 +14,7 @@ def charger_configuration():
     opts, args = getopt.getopt(sys.argv[1:], "f:")
     for opt, val in opts:
         if opt == "-f":
-            lots.push(val)
+            lots.append(val)
 
     codes[:] = [int(c) for c in args]
 

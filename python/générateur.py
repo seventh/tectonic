@@ -21,24 +21,19 @@ class Configuration:
     hauteur: int = 5
     largeur: int = 4
     maximum: int = 5
-    encodé: bool = True
     chemin: str = "../data"
-    enregistrement: bool = False
 
     def __eq__(self, autre):
         return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
                 and self.maximum == autre.maximum
-                and self.encodé == autre.encodé and self.chemin == autre.chemin
-                and self.enregistrement == autre.enregistrement)
+                and self.chemin == autre.chemin)
 
     @staticmethod
     def charger():
         retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "eh:l:m:")
+        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:")
         for opt, val in opts:
-            if opt == "-e":
-                retour.enregistrement = True
-            elif not val.isdecimal():
+            if not val.isdecimal():
                 continue
             else:
                 val = int(val)
@@ -137,17 +132,15 @@ class Grille:
     def __init__(self, conf):
         self.conf = conf
 
-        self.cases = list()
-        for h in range(conf.hauteur):
-            for l in range(conf.largeur):
-                self.cases.append(Case())
+        self.cases = [None] * (conf.hauteur * conf.largeur)
+        for i in range(len(self.cases)):
+            self.cases[i] = Case()
 
         self.zones = list()
 
     def __eq__(self, autre):
-        retour = (self.conf == autre.conf and self.cases == autre.cases
-                  and self.zones == autre.zones)
-        return retour
+        return (self.conf == autre.conf and self.cases == autre.cases
+                and self.zones == autre.zones)
 
     def __hash__(self):
         return hash(str(self))
@@ -461,31 +454,132 @@ class Grille:
         return i == len(self.zones)
 
 
+def charger_enregistrement(conf):
+    """Récupère l'état le plus avancé des calculs
+
+    On cherche le plus haut palier atteint parmis tous les enregistrements :
+    1) de même maximum, voire plus
+    2a) de même largeur, mais de palier <= hauteur×(L-1)
+    2b) de largeur différente, mais de palier < largeur
+    """
+    regex = re.compile("p(\\d+)h(\\d+)l(\\d+)m(\\d+).log\\Z")
+
+    _, _, fichiers = next(os.walk(conf.chemin))
+    meilleur = None
+    palier_max = None
+    maximum_min = None
+    extension_min = None
+    for f in fichiers:
+        m = regex.match(f)
+        if m:
+            groupe = tuple(int(x) for x in m.groups())
+            palier, hauteur, largeur, maximum = groupe
+            éligible = False
+            if maximum >= conf.maximum:
+                if largeur == conf.largeur:
+                    if hauteur == conf.hauteur:
+                        éligible = True
+                    elif palier <= (min(hauteur, conf.hauteur) - 1) * largeur:
+                        éligible = True
+                elif palier < largeur < conf.largeur:
+                    éligible = True
+            if éligible:
+                # Lequel nous intéresse le plus ? Celui qui demande le moins
+                # de reprise. Alors, quels sont les différents types de
+                # reprises ?
+                # Prélude obligatoire : décoder
+                # 1) Si le maximum est supérieur à celui de la conf, il faut
+                #    filtrer les grilles qui emploient des valeurs non
+                #    désirées, c'est-à-dire inspecter toutes les cases de
+                #    toutes les grilles
+                # 2) Si les dimensions ne sont pas les bonnes, il faut
+                #    redimensionner la grille (extension bourrine)
+                # Fin obligatoire : changer la conf et encoder
+                extension = conf.hauteur * conf.largeur - hauteur * largeur
+                if meilleur is None:
+                    palier_max = palier
+                    maximum_min = maximum
+                    extension_min = extension
+                    meilleur = f
+                elif palier > palier_max:
+                    palier_max = palier
+                    maximum_min = maximum
+                    extension_min = extension
+                    meilleur = f
+                elif palier == palier_max and maximum < maximum_min:
+                    maximum_min = maximum
+                    extension_min = extension
+                    meilleur = f
+                elif palier == palier_max and maximum == maximum_min and 0 <= extension < extension_min:
+                    extension_min = extension
+                    meilleur = f
+
+    # Et maintenant, on charge
+    if meilleur is None:
+        logging.info("Initialisation du contexte")
+        palier_max = 0
+        codes = [serial.encoder(Grille(conf.dimensions()))]
+    else:
+        logging.info(f"Reprise depuis «{meilleur}»")
+        codes = list()
+
+        filtrage_case_par_case = (maximum_min != conf.maximum)
+        redimensionnement = (extension_min != 0)
+        reprise = (filtrage_case_par_case or redimensionnement)
+
+        with open(os.path.join(conf.chemin, meilleur), "rt") as entrée:
+            if not reprise:
+                for ligne in entrée:
+                    code = int(ligne.strip())
+                    codes.append(code)
+            else:
+                for ligne in entrée:
+                    code = int(ligne.strip())
+
+                    grille = serial.décoder(code)
+
+                    retenu = True
+                    if filtrage_case_par_case:
+                        for case in grille.cases:
+                            if case.valeur > conf.maximum:
+                                retenu = False
+                                break
+                        else:
+                            grille.conf.maximum = conf.maximum
+
+                    if retenu and redimensionnement:
+                        extension = [None] * extension_min
+                        for i in range(len(extension)):
+                            extension[i] = Case()
+                        grille.cases.extend(extension)
+                        grille.conf.hauteur = conf.hauteur
+                        grille.conf.largeur = conf.largeur
+                    if retenu:
+                        code = serial.encoder(grille)
+                    codes.append(code)
+                codes.sort()
+
+        if reprise:
+            with open(
+                    os.path.join(
+                        conf.chemin,
+                        f"p{palier_max}h{conf.hauteur}l{conf.largeur}m{conf.maximum}.log"
+                    ), "wt") as sortie:
+                for code in codes:
+                    sortie.write(str(code) + "\n")
+
+    return palier_max, codes
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     CONF = Configuration.charger()
     logging.info(CONF)
 
-    G = Grille(CONF.dimensions())
-    CODE = serial.encoder(G)
-    PALIER = {CODE}
+    # Chargement du meilleur contexte
+    ID_PALIER, PALIER = charger_enregistrement(CONF)
     ÉTAGE = set()
-    ID_PALIER = 0
-    PRÉFIXE = f"h{CONF.hauteur}l{CONF.largeur}m{CONF.maximum}"
-
-    # Chargement du dernier palier
-    if CONF.enregistrement:
-        regex = re.compile(f"{PRÉFIXE}.palier_(\\d+).log")
-        _, _, fichiers = next(os.walk(CONF.chemin))
-        fichiers = sorted([f for f in fichiers if regex.match(f)])
-        if len(fichiers) != 0:
-            PALIER.clear()
-            with open(os.path.join(CONF.chemin, fichiers[-1]), "rt") as entrée:
-                for ligne in entrée:
-                    CODE = int(ligne.strip())
-                    PALIER.add(CODE)
-            ID_PALIER = int(regex.match(fichiers[-1]).group(1))
 
     # Fixation d'une case à la fois
     PALIER_MAX = CONF.largeur * CONF.hauteur
@@ -500,28 +594,23 @@ if __name__ == "__main__":
                     CODE = serial.encoder(G)
                     ÉTAGE.add(CODE)
 
-        if CONF.enregistrement:
-            chemin = os.path.join(CONF.chemin,
-                                  f"{PRÉFIXE}.palier_{ID_PALIER + 1}.log")
-            with open(chemin, "wt") as sortie:
-                for CODE in ÉTAGE:
-                    sortie.write(f"{CODE}\n")
-
-        PALIER = ÉTAGE
-        ÉTAGE = set()
+        PALIER = sorted(ÉTAGE)
+        ÉTAGE.clear()
         ID_PALIER += 1
+
+        # Enregistrement des calculs intermédiaires
+        CHEMIN = os.path.join(
+            CONF.chemin,
+            f"p{ID_PALIER}h{CONF.hauteur}l{CONF.largeur}m{CONF.maximum}.log")
+        with open(CHEMIN, "wt") as sortie:
+            for CODE in PALIER:
+                sortie.write(str(CODE) + "\n")
 
     # Affichage final
     logging.info(f"Palier n°{PALIER_MAX} atteint : {len(PALIER)} grilles")
-    PALIER = sorted(PALIER)
-    if CONF.enregistrement:
-        with open(os.path.join(CONF.chemin, f"{PRÉFIXE}.log"), "wt") as SORTIE:
-            for CODE in sorted(PALIER):
-                SORTIE.write(f"{CODE}\n")
-    else:
+    with open(
+            os.path.join(CONF.chemin,
+                         f"h{CONF.hauteur}l{CONF.largeur}m{CONF.maximum}.log"),
+            "wt") as SORTIE:
         for CODE in PALIER:
-            if CONF.encodé:
-                print(CODE)
-            else:
-                G = serial.décoder(CODE)
-                print(G)
+            SORTIE.write(f"{CODE}\n")
