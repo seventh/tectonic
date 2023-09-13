@@ -4,6 +4,78 @@
 
 Ligne par ligne, colonne par colonne, une case à la fois (palier).
 
+=== Exploitation des résultats intermédiaires
+
 Un résultat notable est qu'avec la sauvegarde des paliers intermédiaires,
 le palier L×(H-1)×M du problème (L, H, M) est le mếme que pour tous les
 problèmes (L, H+n, M) quelque soit n >= 0.
+
+=== Limitation du contexte
+
+La génération d'une nouvelle ligne n'est sensible qu'aux (H-1) lignes
+précédentes. On peut même envisager une limitation plus drastique encore
+en considérant la frontière constituée de polyominos pleins.
+
+La définition de la frontière minimale est la suivante : c'est l'ensemble
+des cases qui appartiennent à la même zone que les cases limitrophes d'au moins
+une case qui n'a pas (encore) de *valeur* assignée.
+
+Par exemple, dans :
+
++-+-+-+-+
+|. . . .|
++ + + + +
+|4|5|4 .|
++ +-+-+ +
+|2|3 2|3|
++-+ +-+ +
+|5 4|5 4|
++ +-+-+-+
+|1|2 3 1|
++-+-+-+-+
+
+la frontière est :
+
++-+-+-+-+
+|. . . .|
++ + + + +
+|4|5|4 .|
++ +-+-+ +
+|2|3 2|3|
++-+ +-+ +
+|5 4|5 4|
++ +-+-+-+
+|1|… … …|
++-+-+-+-+
+
+Ici, même la zone 1/5/4/3/2 en forme de M fait partie de la frontière, car le 2
+à l'extrêmité est limitrophe d'une case indéterminée.
+
+== Spécificité du format d'encodage
+
+Le format d'encodage doit permettre de représenter :
+
+* des grilles dont le découpage en zones est connu, mais pas toutes les valeurs.
+C'est a priori le besoin premier, pour stocker des puzzles à résoudre ;
+* des grilles dont le découpage en zones n'est pas totalement connu, ce qui est
+utile pour le générateur de grilles, avec sauvegarde des étapes intermédiaires.
+
+== Spécificité du format d'enregistrement
+
+Pour être certain que l'enregistrement d'un palier est complet, il faut un
+marqueur en fin de fichier dont la présence assure sans équivoque l'intégrité
+de celui-ci. Cela peut-être :
+
+* un code numérique qui ne représente pas un code valide au sens du format
+d'encodage (e.g. -1)
+* une chaîne de caractères spécifique (e.g. «FIN»).
+
+== Transposition
+
+Il est forcément intéressant de réutiliser les paliers (i.e. résultats
+intermédiaires) précédemment atteints pour générer d'autres grilles. Au vu de
+la stratégie de génération, qui génère ligne à ligne, il semble pertinent de
+toujours favoriser la génération de grilles telles que H >= L, quitte à
+intervertir les dimensions caractéristiques. Alors, une fois que l'on obtient
+les grilles L×H, il ne reste plus qu'à les transposer une à une pour obtenir
+les grilles H×L.

@@ -65,6 +65,17 @@ class Dimension:
         return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
                 and self.maximum == autre.maximum)
 
+    def en_index(self, largeur, hauteur):
+        # assert 0 <= largeur < self.largeur
+        # assert 0 <= hauteur < self.hauteur
+
+        return self.largeur * hauteur + largeur
+
+    def transposition(self):
+        """Intervertit hauteur et largeur
+        """
+        return Dimension(self.largeur, self.hauteur, self.maximum)
+
 
 class Terrain(enum.IntEnum):
     """Différentes natures de terrain, fidèles au jeu «Tiwanaku»
@@ -180,7 +191,7 @@ class Grille:
             # Valeurs des cases
             ligne = str()
             for l in range(self.conf.largeur):
-                i = self.en_index(l, h)
+                i = self.conf.en_index(l, h)
                 j = i - 1
                 if (l == 0 or
                     (self.cases[i].zone != -1 and self.cases[j].zone != -1
@@ -199,9 +210,6 @@ class Grille:
 
         retour = "\n".join(lignes)
         return retour
-
-    def en_index(self, largeur, hauteur):
-        return self.conf.largeur * hauteur + largeur
 
     def normaliser(self):
         """Assure un ordre de numérotation entre Zones
@@ -249,7 +257,7 @@ class Grille:
         trouvé = False
         for h in range(self.conf.hauteur):
             for l in range(self.conf.largeur):
-                i = self.en_index(l, h)
+                i = self.conf.en_index(l, h)
                 if not self.cases[i].est_valorisée():
                     trouvé = True
                     break
@@ -359,18 +367,18 @@ class Grille:
             retour.difference_update(self.zones[id_zone].valeurs)
 
         # On supprime toutes les valeurs à proximité
-        i = self.en_index(l, h)
+        i = self.conf.en_index(l, h)
         if l > 0:
             j = i - 1
             retour.discard(self.cases[j].case)
         if h > 0:
-            j = self.en_index(l, h - 1)
+            j = self.conf.en_index(l, h - 1)
             retour.discard(self.cases[j].case)
         if l > 0 and h > 0:
-            j = self.en_index(l - 1, h - 1)
+            j = self.conf.en_index(l - 1, h - 1)
             retour.discard(self.cases[j].case)
         if l < self.conf.largeur - 1 and h > 0:
-            j = self.en_index(l + 1, h - 1)
+            j = self.conf.en_index(l + 1, h - 1)
             retour.discard(self.cases[j].case)
 
         return retour
@@ -406,14 +414,14 @@ class Grille:
         voisinage = dict()
         for h in range(self.conf.hauteur):
             for l in range(self.conf.largeur):
-                i = self.en_index(l, h)
+                i = self.conf.en_index(l, h)
                 zone = self.cases[i].zone
                 for delta_h, delta_l in [(-1, 1), (0, 1), (1, 1), (1, 0)]:
                     h2 = h + delta_h
                     l2 = l + delta_l
                     if (0 <= h2 < self.conf.hauteur
                             and 0 <= l2 < self.conf.largeur):
-                        j = self.en_index(l2, h2)
+                        j = self.conf.en_index(l2, h2)
                         zone2 = self.cases[j].zone
                         if zone != zone2:
                             voisinage.setdefault(zone, set()).add(zone2)
@@ -423,7 +431,7 @@ class Grille:
         for k in sorted(voisinage):
             logging.debug(f"{k} → {sorted(voisinage[k])}")
 
-        # En attendant d'avoir une réponse fiable…
+        # Coloriage par force brute
         couleurs = [None] * len(self.zones)
         couleurs[0] = Terrain.herbe
         i = 1
@@ -452,6 +460,18 @@ class Grille:
             print(couleurs)
 
         return i == len(self.zones)
+
+    def transposition(self):
+        """Grille dont largeur et hauteur sont interverties
+        """
+        retour = Grille(self.conf.transposition())
+        retour.zones = copy.deepcopy(self.zones)
+        for h in range(self.conf.hauteur):
+            for l in range(self.conf.largeur):
+                i = self.conf.en_index(l, h)
+                j = retour.conf.en_index(h, l)
+                retour.cases[j] = copy.deepcopy(self.cases[i])
+        return retour
 
 
 def charger_enregistrement(conf):
