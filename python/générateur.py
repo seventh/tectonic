@@ -71,10 +71,17 @@ class Dimension:
 
         return self.largeur * hauteur + largeur
 
+    def nb_cases(self):
+        """Nombre de cases au total
+        """
+        return self.hauteur * self.largeur
+
     def transposition(self):
         """Intervertit hauteur et largeur
         """
-        return Dimension(self.largeur, self.hauteur, self.maximum)
+        return Dimension(hauteur=self.largeur,
+                         largeur=self.hauteur,
+                         maximum=self.maximum)
 
 
 class Terrain(enum.IntEnum):
@@ -191,7 +198,7 @@ class Grille:
             # Valeurs des cases
             ligne = str()
             for l in range(self.conf.largeur):
-                i = self.conf.en_index(l, h)
+                i = self.en_index(l, h)
                 j = i - 1
                 if (l == 0 or
                     (self.cases[i].zone != -1 and self.cases[j].zone != -1
@@ -210,6 +217,9 @@ class Grille:
 
         retour = "\n".join(lignes)
         return retour
+
+    def en_index(self, largeur, hauteur):
+        return self.conf.en_index(largeur, hauteur)
 
     def normaliser(self):
         """Assure un ordre de numérotation entre Zones
@@ -257,7 +267,7 @@ class Grille:
         trouvé = False
         for h in range(self.conf.hauteur):
             for l in range(self.conf.largeur):
-                i = self.conf.en_index(l, h)
+                i = self.en_index(l, h)
                 if not self.cases[i].est_valorisée():
                     trouvé = True
                     break
@@ -367,18 +377,18 @@ class Grille:
             retour.difference_update(self.zones[id_zone].valeurs)
 
         # On supprime toutes les valeurs à proximité
-        i = self.conf.en_index(l, h)
+        i = self.en_index(l, h)
         if l > 0:
             j = i - 1
             retour.discard(self.cases[j].case)
         if h > 0:
-            j = self.conf.en_index(l, h - 1)
+            j = self.en_index(l, h - 1)
             retour.discard(self.cases[j].case)
         if l > 0 and h > 0:
-            j = self.conf.en_index(l - 1, h - 1)
+            j = self.en_index(l - 1, h - 1)
             retour.discard(self.cases[j].case)
         if l < self.conf.largeur - 1 and h > 0:
-            j = self.conf.en_index(l + 1, h - 1)
+            j = self.en_index(l + 1, h - 1)
             retour.discard(self.cases[j].case)
 
         return retour
@@ -414,14 +424,14 @@ class Grille:
         voisinage = dict()
         for h in range(self.conf.hauteur):
             for l in range(self.conf.largeur):
-                i = self.conf.en_index(l, h)
+                i = self.en_index(l, h)
                 zone = self.cases[i].zone
                 for delta_h, delta_l in [(-1, 1), (0, 1), (1, 1), (1, 0)]:
                     h2 = h + delta_h
                     l2 = l + delta_l
                     if (0 <= h2 < self.conf.hauteur
                             and 0 <= l2 < self.conf.largeur):
-                        j = self.conf.en_index(l2, h2)
+                        j = self.en_index(l2, h2)
                         zone2 = self.cases[j].zone
                         if zone != zone2:
                             voisinage.setdefault(zone, set()).add(zone2)
@@ -468,8 +478,8 @@ class Grille:
         retour.zones = copy.deepcopy(self.zones)
         for h in range(self.conf.hauteur):
             for l in range(self.conf.largeur):
-                i = self.conf.en_index(l, h)
-                j = retour.conf.en_index(h, l)
+                i = self.en_index(l, h)
+                j = retour.en_index(h, l)
                 retour.cases[j] = copy.deepcopy(self.cases[i])
         return retour
 
@@ -547,14 +557,23 @@ def charger_enregistrement(conf):
         redimensionnement = (extension_min != 0)
         reprise = (filtrage_case_par_case or redimensionnement)
 
+        marque_fin_rencontrée = False
         with open(os.path.join(conf.chemin, meilleur), "rt") as entrée:
             if not reprise:
                 for ligne in entrée:
-                    code = int(ligne.strip())
+                    if ligne == "-1\n":
+                        marque_fin_rencontrée = True
+                        break
+
+                    code = int(ligne)
                     codes.append(code)
             else:
                 for ligne in entrée:
-                    code = int(ligne.strip())
+                    if ligne == "-1\n":
+                        marque_fin_rencontrée = True
+                        break
+
+                    code = int(ligne)
 
                     grille = serial.décoder(code)
 
@@ -575,9 +594,12 @@ def charger_enregistrement(conf):
                         grille.conf.hauteur = conf.hauteur
                         grille.conf.largeur = conf.largeur
                     if retenu:
+                        del grille.cases[grille.conf.nb_cases():]
                         code = serial.encoder(grille)
                     codes.append(code)
                 codes.sort()
+        if not marque_fin_rencontrée:
+            logging.warning(f"Le fichier {meilleur} peut être incomplet.")
 
         if reprise:
             with open(

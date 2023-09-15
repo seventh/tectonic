@@ -70,6 +70,15 @@ de celui-ci. Cela peut-être :
 d'encodage (e.g. -1)
 * une chaîne de caractères spécifique (e.g. «FIN»).
 
+Idéalement, il faut un marqueur :
+
+* robuste au tri numérique du fichier, c'est-à-dire qui conserve sa place après
+un tri.
+* facilitant le traitement normal des codes (typiquement, un code numérique)
+
+À savoir, lors d'un tri numérique, toute chaîne de caractères est interprétée
+comme un nombre, et est donc estimé à «0» la plupart du temps.
+
 == Transposition
 
 Il est forcément intéressant de réutiliser les paliers (i.e. résultats

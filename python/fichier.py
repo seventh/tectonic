@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Format de fichier
 
@@ -47,18 +48,19 @@ def enregistrer(chemin, codes):
 def convertir(chemin):
     """Ajoute une marque de fin de fichier aux fichiers n'en présentant pas
     """
+    logging.info(f"Traitement de «{chemin}»")
     with open(chemin, "r+t") as fichier:
-        taille = -200
-        fin = None
-        while True:
-            fichier.seek(taille, io.SEEK_END)
+        fichier.seek(0, io.SEEK_END)
+        lg = fichier.tell()
+        nb_cars = min(4, lg)
+        fin = ""
+        while fin.count("\n") < 2:
+            logging.debug(nb_cars)
+            fichier.seek(lg - nb_cars, io.SEEK_SET)
             fin = fichier.read()
-            if fin.count("\n") >= 2:
-                break
-            else:
-                taille *= 2
+            nb_cars *= 2
         lignes = fin.split("\n")
-        if lignes[-1] != "-1":
+        if lignes[-2] != "-1":
             fichier.write("-1\n")
 
 

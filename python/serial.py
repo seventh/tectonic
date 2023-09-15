@@ -75,7 +75,6 @@ def décoder(code):
 
     pad_valeur = maximum + 1
     pad_zone = nb_zones + 1
-    pad_bordure = 2 * (maximum + 1) + 1
 
     conf = générateur.Dimension(hauteur, largeur, maximum)
     retour = générateur.Grille(conf)
@@ -118,5 +117,7 @@ def décoder(code):
                             bordures[z] += 1
     for i, z in enumerate(retour.zones):
         z.bordure = bordures[i]
+
+    logging.debug(f"Décodage\n{retour}\n{retour.zones}")
 
     return retour
