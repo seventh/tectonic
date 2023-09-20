@@ -24,7 +24,8 @@ def encoder(grille):
     assert grille.conf.maximum < pad_dimension
     assert len(grille.zones) < pad_dimension
 
-    logging.debug(f"Encodage\n{grille}\n{grille.zones}")
+    if False:
+        logging.debug(f"Encodage\n{grille}\n{grille.zones}")
 
     retour = 0
 
@@ -59,7 +60,7 @@ def encoder(grille):
         print(grille.zones)
         print(recons)
         print(recons.zones)
-    assert décoder(retour) == grille
+        assert décoder(retour) == grille
 
     return retour
 
@@ -118,6 +119,7 @@ def décoder(code):
     for i, z in enumerate(retour.zones):
         z.bordure = bordures[i]
 
-    logging.debug(f"Décodage\n{retour}\n{retour.zones}")
+    if False:
+        logging.debug(f"Décodage\n{retour}\n{retour.zones}")
 
     return retour

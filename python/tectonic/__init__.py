@@ -1,174 +1,100 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Générateur de grille complète
+"""Éléments de base pour la manipulation de grilles de Tectonic
 """
 
-import copy
 import dataclasses
-import enum
-import getopt
-import logging
-import os.path
-import re
-import sys
-
-import serial
 
 
 @dataclasses.dataclass
-class Configuration:
-
-    hauteur: int = 5
-    largeur: int = 4
-    maximum: int = 5
-    chemin: str = "../data"
-
-    def __eq__(self, autre):
-        return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
-                and self.maximum == autre.maximum
-                and self.chemin == autre.chemin)
-
-    @staticmethod
-    def charger():
-        retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:")
-        for opt, val in opts:
-            if not val.isdecimal():
-                continue
-            else:
-                val = int(val)
-                if opt == "-h" and val > 0:
-                    retour.hauteur = val
-                elif opt == "-l" and val > 0:
-                    retour.largeur = val
-                elif opt == "-m" and val > 2:
-                    retour.maximum = val
-        if len(args) != 0:
-            retour.chemin = args[0]
-
-        return retour
-
-    def dimensions(self):
-        return Dimension(hauteur=self.hauteur,
-                         largeur=self.largeur,
-                         maximum=self.maximum)
-
-
-@dataclasses.dataclass
-class Dimension:
-
-    hauteur: int = 5
-    largeur: int = 4
-    maximum: int = 5
-
-    def __eq__(self, autre):
-        return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
-                and self.maximum == autre.maximum)
-
-    def en_index(self, largeur, hauteur):
-        # assert 0 <= largeur < self.largeur
-        # assert 0 <= hauteur < self.hauteur
-
-        return self.largeur * hauteur + largeur
-
-    def nb_cases(self):
-        """Nombre de cases au total
-        """
-        return self.hauteur * self.largeur
-
-    def transposition(self):
-        """Intervertit hauteur et largeur
-        """
-        return Dimension(hauteur=self.largeur,
-                         largeur=self.hauteur,
-                         maximum=self.maximum)
-
-
-class Terrain(enum.IntEnum):
-    """Différentes natures de terrain, fidèles au jeu «Tiwanaku»
+class Base:
+    """Caractéristiques principales d'une Grille
     """
 
-    herbe = enum.auto()
-    roche = enum.auto()
-    sable = enum.auto()
-    terre = enum.auto()
+    largeur: int = 4
+    hauteur: int = 5
+    maximum: int = 5
+
+    def en_index(self, largeur, hauteur):
+        return hauteur * self.largeur + largeur
+
+    def nb_cases(self):
+        return self.hauteur * self.largeur
+
+    def transposée(self):
+        """Objet dual dont hauteur et largeur ont été inversées
+        """
+        return Base(largeur=self.hauteur,
+                    hauteur=self.largeur,
+                    maximum=self.maximum)
 
 
 @dataclasses.dataclass
 class Case:
-    """Valeur associée à un identifiant de zone
-    """
 
-    zone: int = -1
-    case: int = -1
-
-    def __eq__(self, autre):
-        return (self.zone == autre.zone and self.case == autre.case)
-
-    def est_valorisée(self):
-        return self.case != -1
-
-
-@dataclasses.dataclass
-class Zone:
-    """Ensemble de valeurs connexes et nombre de bords libres
-    """
-
-    valeurs: set = dataclasses.field(default_factory=set)
-    bordure: int = 2
-
-    def __eq__(self, autre):
-        return (self.valeurs == autre.valeurs
-                and self.bordure == autre.bordure)
-
-    def est_anormal(self):
-        """Une Zone est anormale si elle est fermée et ne contient pas toutes
-        les valeurs prévues
-        """
-        retour = False
-        if self.bordure == 0:
-            minimum = None
-            maximum = None
-            n = 0
-            for v in self.valeurs:
-                n += 1
-                if n == 1:
-                    minimum = v
-                    maximum = v
-                else:
-                    if v < minimum:
-                        minimum = v
-                    if v > maximum:
-                        maximum = v
-            if minimum != 1 or maximum != minimum + n - 1:
-                retour = True
-        return retour
+    valeur: int = -1
+    région: int = -1
 
 
 class Grille:
 
-    def __init__(self, conf):
-        self.conf = conf
+    def __init__(self, base):
+        self.base = base
 
-        self.cases = [None] * (conf.hauteur * conf.largeur)
-        for i in range(len(self.cases)):
+        taille = base.nb_cases()
+        self.cases = [None] * taille
+        for i in range(taille):
             self.cases[i] = Case()
 
-        self.zones = list()
-
     def __eq__(self, autre):
-        return (self.conf == autre.conf and self.cases == autre.cases
-                and self.zones == autre.zones)
+        return (self.base == autre.base and self.cases == autre.cases)
 
     def __hash__(self):
         return hash(str(self))
 
     def __repr__(self):
+        # On détermine la longueur des champs à afficher
+        lgv = len(str(max([c.valeur for c in self.cases if c.valeur >= 1])))
+        lgr = len(str(max([c.région for c in self.cases if c.région >= 0])))
+        lgc = 3 + lgv + lgr
+
+        # Constitution de la grille, ligne à ligne
         lignes = list()
-        for id, zone in enumerate(self.zones):
-            if zone is not None:
-                lignes.append(f"{id} → {zone.bordure} bord(s) libres")
-        return "\n".join(lignes)
+        for h in range(self.base.hauteur):
+            # Séparateur horizontal
+            ligne = "+"
+            for l in range(self.base.largeur):
+                séparateur = "-"
+                if h > 0 and self[(l, h - 1)].région == self[(l, h)].région:
+                    séparateur = " "
+                ligne += séparateur * lgc + "+"
+            lignes.append(ligne)
+
+            # Cases
+            ligne = str()
+            for l in range(self.base.largeur):
+                case = self[(l, h)]
+                séparateur = "|"
+                if l > 0 and self[(l - 1, h)].région == case.région:
+                    séparateur = " "
+                ligne += séparateur
+                if case.valeur >= 1:
+                    v = f"{case.valeur:{lgv}}"
+                else:
+                    v = " " * lgv
+                if case.région >= 0:
+                    r = f"{case.région:{lgr}}"
+                else:
+                    r = " " * lgr
+                ligne += f"({v},{r})"
+            ligne += "|"
+            lignes.append(ligne)
+
+        # Dernier séparateur horizontal
+        ligne = "+" + ("-" * lgc + "+") * self.base.largeur
+        lignes.append(ligne)
+
+        retour = "\n".join(lignes)
+        return retour
 
     def __str__(self):
         lignes = list()
@@ -483,177 +409,3 @@ class Grille:
                 j = retour.en_index(h, l)
                 retour.cases[j] = copy.deepcopy(self.cases[i])
         return retour
-
-
-def charger_enregistrement(conf):
-    """Récupère l'état le plus avancé des calculs
-
-    On cherche le plus haut palier atteint parmis tous les enregistrements :
-    1) de même maximum, voire plus
-    2a) de même largeur, mais de palier <= hauteur×(L-1)
-    2b) de largeur différente, mais de palier < largeur
-    """
-    regex = re.compile("p(\\d+)h(\\d+)l(\\d+)m(\\d+).log\\Z")
-
-    _, _, fichiers = next(os.walk(conf.chemin))
-    meilleur = None
-    palier_max = None
-    maximum_min = None
-    extension_min = None
-    for f in fichiers:
-        m = regex.match(f)
-        if m:
-            groupe = tuple(int(x) for x in m.groups())
-            palier, hauteur, largeur, maximum = groupe
-            éligible = False
-            if maximum >= conf.maximum:
-                if largeur == conf.largeur:
-                    if hauteur == conf.hauteur:
-                        éligible = True
-                    elif palier <= (min(hauteur, conf.hauteur) - 1) * largeur:
-                        éligible = True
-                elif palier < largeur < conf.largeur:
-                    éligible = True
-            if éligible:
-                # Lequel nous intéresse le plus ? Celui qui demande le moins
-                # de reprise. Alors, quels sont les différents types de
-                # reprises ?
-                # Prélude obligatoire : décoder
-                # 1) Si le maximum est supérieur à celui de la conf, il faut
-                #    filtrer les grilles qui emploient des valeurs non
-                #    désirées, c'est-à-dire inspecter toutes les cases de
-                #    toutes les grilles
-                # 2) Si les dimensions ne sont pas les bonnes, il faut
-                #    redimensionner la grille (extension bourrine)
-                # Fin obligatoire : changer la conf et encoder
-                extension = conf.hauteur * conf.largeur - hauteur * largeur
-                if meilleur is None:
-                    palier_max = palier
-                    maximum_min = maximum
-                    extension_min = extension
-                    meilleur = f
-                elif palier > palier_max:
-                    palier_max = palier
-                    maximum_min = maximum
-                    extension_min = extension
-                    meilleur = f
-                elif palier == palier_max and maximum < maximum_min:
-                    maximum_min = maximum
-                    extension_min = extension
-                    meilleur = f
-                elif palier == palier_max and maximum == maximum_min and 0 <= extension < extension_min:
-                    extension_min = extension
-                    meilleur = f
-
-    # Et maintenant, on charge
-    if meilleur is None:
-        logging.info("Initialisation du contexte")
-        palier_max = 0
-        codes = [serial.encoder(Grille(conf.dimensions()))]
-    else:
-        logging.info(f"Reprise depuis «{meilleur}»")
-        codes = list()
-
-        filtrage_case_par_case = (maximum_min != conf.maximum)
-        redimensionnement = (extension_min != 0)
-        reprise = (filtrage_case_par_case or redimensionnement)
-
-        marque_fin_rencontrée = False
-        with open(os.path.join(conf.chemin, meilleur), "rt") as entrée:
-            if not reprise:
-                for ligne in entrée:
-                    if ligne == "-1\n":
-                        marque_fin_rencontrée = True
-                        break
-
-                    code = int(ligne)
-                    codes.append(code)
-            else:
-                for ligne in entrée:
-                    if ligne == "-1\n":
-                        marque_fin_rencontrée = True
-                        break
-
-                    code = int(ligne)
-
-                    grille = serial.décoder(code)
-
-                    retenu = True
-                    if filtrage_case_par_case:
-                        for case in grille.cases:
-                            if case.valeur > conf.maximum:
-                                retenu = False
-                                break
-                        else:
-                            grille.conf.maximum = conf.maximum
-
-                    if retenu and redimensionnement:
-                        extension = [None] * extension_min
-                        for i in range(len(extension)):
-                            extension[i] = Case()
-                        grille.cases.extend(extension)
-                        grille.conf.hauteur = conf.hauteur
-                        grille.conf.largeur = conf.largeur
-                    if retenu:
-                        del grille.cases[grille.conf.nb_cases():]
-                        code = serial.encoder(grille)
-                    codes.append(code)
-                codes.sort()
-        if not marque_fin_rencontrée:
-            logging.warning(f"Le fichier {meilleur} peut être incomplet.")
-
-        if reprise:
-            with open(
-                    os.path.join(
-                        conf.chemin,
-                        f"p{palier_max}h{conf.hauteur}l{conf.largeur}m{conf.maximum}.log"
-                    ), "wt") as sortie:
-                for code in codes:
-                    sortie.write(str(code) + "\n")
-
-    return palier_max, codes
-
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-
-    CONF = Configuration.charger()
-    logging.info(CONF)
-
-    # Chargement du meilleur contexte
-    ID_PALIER, PALIER = charger_enregistrement(CONF)
-    ÉTAGE = set()
-
-    # Fixation d'une case à la fois
-    PALIER_MAX = CONF.largeur * CONF.hauteur
-    while ID_PALIER < PALIER_MAX:
-        logging.info(f"Palier n°{ID_PALIER} atteint : {len(PALIER)} grilles")
-        while len(PALIER) != 0:
-            CODE = PALIER.pop()
-            G = serial.décoder(CODE)
-            N = G.prochains()
-            for G in N:
-                if G.est_crédible():
-                    CODE = serial.encoder(G)
-                    ÉTAGE.add(CODE)
-
-        PALIER = sorted(ÉTAGE)
-        ÉTAGE.clear()
-        ID_PALIER += 1
-
-        # Enregistrement des calculs intermédiaires
-        CHEMIN = os.path.join(
-            CONF.chemin,
-            f"p{ID_PALIER}h{CONF.hauteur}l{CONF.largeur}m{CONF.maximum}.log")
-        with open(CHEMIN, "wt") as sortie:
-            for CODE in PALIER:
-                sortie.write(str(CODE) + "\n")
-
-    # Affichage final
-    logging.info(f"Palier n°{PALIER_MAX} atteint : {len(PALIER)} grilles")
-    with open(
-            os.path.join(CONF.chemin,
-                         f"h{CONF.hauteur}l{CONF.largeur}m{CONF.maximum}.log"),
-            "wt") as SORTIE:
-        for CODE in PALIER:
-            SORTIE.write(f"{CODE}\n")
