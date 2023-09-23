@@ -99,7 +99,8 @@ def décoder(code):
 
                 if retour.zones[zone] is None:
                     retour.zones[zone] = générateur.Zone()
-                retour.zones[zone].valeurs.add(valeur)
+                if valeur > 0:
+                    retour.zones[zone].valeurs.add(valeur)
 
     # Informations de bordure
     # Le code est robuste au fait que celles-ci ne soient plus encodées
