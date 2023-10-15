@@ -581,7 +581,7 @@ def charger_enregistrement(conf):
                     retenu = True
                     if filtrage_case_par_case:
                         for case in grille.cases:
-                            if case.valeur > conf.maximum:
+                            if case.case > conf.maximum:
                                 retenu = False
                                 break
                         else:
