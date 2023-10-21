@@ -60,6 +60,10 @@ C'est a priori le besoin premier, pour stocker des puzzles à résoudre ;
 * des grilles dont le découpage en zones n'est pas totalement connu, ce qui est
 utile pour le générateur de grilles, avec sauvegarde des étapes intermédiaires.
 
+De plus, s'il permet de conserver des codes compacts alors que les cases non
+encore générées sont inconnues, c'est bien aussi (évitons d'encoder des 0 pour
+rien)
+
 == Spécificité du format d'enregistrement
 
 Pour être certain que l'enregistrement d'un palier est complet, il faut un

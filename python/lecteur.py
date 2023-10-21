@@ -4,40 +4,44 @@
 import getopt
 import sys
 
-import serial
+from tectonic.fichier1 import Lecteur
+from tectonic.serial2 import Codec
 
 
 def charger_configuration():
     lots = list()
-    codes = list()
 
     opts, args = getopt.getopt(sys.argv[1:], "f:")
     for opt, val in opts:
         if opt == "-f":
             lots.append(val)
-
-    codes[:] = [int(c) for c in args]
+    codes = [int(c) for c in args]
 
     return codes, lots
 
 
-def afficher_code(code):
-    grille = serial.décoder(code)
-    print("")
-    print(grille)
+def afficher(codes, lots):
+    codec = Codec()
 
+    affichage = False
+    for code in codes:
+        grille = codec.décoder(code)
+        if affichage:
+            print("")
+        print(grille)
+        affichage = True
 
-def lire(chemin):
-    with open(chemin, "rt") as entrée:
-        for ligne in entrée:
-            code = int(ligne.strip())
-            afficher_code(code)
+    for lot in lots:
+        lecteur = Lecteur(lot)
+        for code in lecteur:
+            grille = codec.décoder(code)
+            if affichage:
+                print("")
+            print(grille)
+            affichage = True
 
 
 if __name__ == "__main__":
     CODES, LOTS = charger_configuration()
 
-    for CODE in CODES:
-        afficher_code(CODE)
-    for LOT in LOTS:
-        lire(LOT)
+    afficher(CODES, LOTS)
