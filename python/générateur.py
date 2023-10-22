@@ -135,7 +135,9 @@ def identifier_meilleur_départ(conf):
                     (p.palier == meilleur_progrès.palier and
                      (p.maximum < meilleur_progrès.maximum or
                       (p.maximum == meilleur_progrès.maximum and
-                       (extension == 0 or extension > extension_min))))):
+                       (extension == 0 or
+                        (extension_min != 0 and extension > extension_min)))))
+                    ):
                     meilleur_progrès = p
                     meilleur_fichier = f
                     extension_min = extension
