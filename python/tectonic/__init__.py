@@ -3,6 +3,7 @@
 """
 
 import dataclasses
+import logging
 
 
 @dataclasses.dataclass
@@ -183,14 +184,22 @@ class Grille:
         """Assure un ordre de numérotation entre Zones
         """
         # Attribution de nouveaux numéros
-        # anciens[z] est l'ancien numéro de la zone désormais identifiée 'z'
+        # anciens[r] est l'ancien numéro de la région désormais identifiée 'r'
+        utile = False
         anciens = list()
         for case in self.cases:
             région = case.région
             if région >= 0:
-                if région not in anciens:
+                try:
+                    nouvelle_région = anciens.index(région)
+                except ValueError:
+                    nouvelle_région = len(anciens)
                     anciens.append(région)
-                case.région = anciens.index(case.région)
+                if nouvelle_région != case.région:
+                    utile = True
+                case.région = nouvelle_région
+        if utile:
+            logging.debug("Normalisation nécessaire")
 
     def est_complète(self):
         """Vrai ssi toutes les cases ont une valeur de fixée

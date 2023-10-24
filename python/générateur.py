@@ -439,6 +439,7 @@ class Chercheur:
                         grille = copy.deepcopy(grille_modèle)
                         grille.cases[i].région = r1
                         grille.cases[i].valeur = v
+                        # TODO : cet appel est-il bien nécessaire ?
                         grille.normaliser()
                         retour.append(grille)
 
