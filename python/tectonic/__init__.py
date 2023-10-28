@@ -42,7 +42,6 @@ class Case:
 
 
 class Grille:
-
     def __init__(self, base):
         self.base = base
 
@@ -180,8 +179,30 @@ class Grille:
         régions = set([c.région for c in self.cases if c.région >= 0])
         return len(régions)
 
+    def est_normale(self):
+        """Vrai ssi la grille respecte la forme normale
+        """
+        # Attribution de nouveaux numéros
+        # anciens[r] est l'ancien numéro de la région désormais identifiée 'r'
+        retour = True
+        anciens = list()
+        for case in self.cases:
+            région = case.région
+            if région >= 0:
+                try:
+                    nouvelle_région = anciens.index(région)
+                except ValueError:
+                    nouvelle_région = len(anciens)
+                    anciens.append(région)
+                if nouvelle_région != case.région:
+                    retour = False
+                    break
+        return retour
+
     def normaliser(self):
-        """Assure un ordre de numérotation entre Zones
+        """Assure un ordre de numérotation entre Régions.
+
+        La valeur de retour indique si une modification a été effectuée
         """
         # Attribution de nouveaux numéros
         # anciens[r] est l'ancien numéro de la région désormais identifiée 'r'
@@ -198,8 +219,7 @@ class Grille:
                 if nouvelle_région != case.région:
                     utile = True
                 case.région = nouvelle_région
-        if utile:
-            logging.debug("Normalisation nécessaire")
+        return utile
 
     def est_complète(self):
         """Vrai ssi toutes les cases ont une valeur de fixée

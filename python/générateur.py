@@ -3,7 +3,6 @@
 """Générateur de grille complète
 """
 
-import copy
 import dataclasses
 import getopt
 import itertools
@@ -63,7 +62,6 @@ class Configuration:
 class Progression:
     """Progrès de recherche : base & palier atteints
     """
-
     def __init__(self, palier, hauteur, largeur, maximum):
         self.palier = palier
         self.hauteur = hauteur
@@ -109,38 +107,42 @@ def identifier_meilleur_départ(conf):
     meilleur_progrès = None
     extension_min = None
 
-    _, _, fichiers = next(os.walk(conf.chemin))
-    for f in fichiers:
-        p = Progression.depuis_chaîne(f)
-        if p is not None:
-            éligible = False
-            if p.maximum >= conf.maximum:
-                if p.largeur == conf.largeur:
-                    if p.hauteur == conf.hauteur:
+    if not os.path.isdir(conf.chemin):
+        os.makedirs(conf.chemin, mode=0o755)
+    else:
+        _, _, fichiers = next(os.walk(conf.chemin))
+        for f in fichiers:
+            p = Progression.depuis_chaîne(f)
+            if p is not None:
+                éligible = False
+                if p.maximum >= conf.maximum:
+                    if p.largeur == conf.largeur:
+                        if p.hauteur == conf.hauteur:
+                            éligible = True
+                        elif p.palier <= (min(p.hauteur, conf.hauteur) -
+                                          1) * p.largeur:
+                            éligible = True
+                    elif p.palier < min(p.largeur, conf.largeur):
                         éligible = True
-                    elif p.palier <= (min(p.hauteur, conf.hauteur) -
-                                      1) * p.largeur:
-                        éligible = True
-                elif p.palier < min(p.largeur, conf.largeur):
-                    éligible = True
-            if éligible:
-                # À choisir, on ne veut pas à avoir à modifier le nombre de
-                # cases. Si ce n'est pas possible, on veut optimiser les temps
-                # de chargement, ce qui signifie :
-                # - s'il faut rajouter des cases, en ajouter le plus possible ;
-                # - s'il faut en retirer, en retirer le moins possible.
-                extension = conf.hauteur * conf.largeur - p.hauteur * p.largeur
-                if (meilleur_fichier is None
-                        or p.palier > meilleur_progrès.palier or
-                    (p.palier == meilleur_progrès.palier and
-                     (p.maximum < meilleur_progrès.maximum or
-                      (p.maximum == meilleur_progrès.maximum and
-                       (extension == 0 or
-                        (extension_min != 0 and extension > extension_min)))))
-                    ):
-                    meilleur_progrès = p
-                    meilleur_fichier = f
-                    extension_min = extension
+                if éligible:
+                    # À choisir, on ne veut pas à avoir à modifier le nombre de
+                    # cases. Si ce n'est pas possible, on veut optimiser les
+                    # temps de chargement, ce qui signifie :
+                    # - s'il faut rajouter des cases, en ajouter le plus
+                    # possible ;
+                    # - s'il faut en retirer, en retirer le moins possible.
+                    extension = conf.base().nb_cases() - p.base().nb_cases()
+                    if (meilleur_fichier is None
+                            or p.palier > meilleur_progrès.palier
+                            or (p.palier == meilleur_progrès.palier and
+                                (p.maximum < meilleur_progrès.maximum or
+                                 (p.maximum == meilleur_progrès.maximum and
+                                  (extension == 0 or
+                                   (extension_min != 0
+                                    and extension > extension_min)))))):
+                        meilleur_progrès = p
+                        meilleur_fichier = f
+                        extension_min = extension
 
     if meilleur_fichier is None:
         return (Progression(0, conf.hauteur, conf.largeur, conf.maximum), None)
@@ -252,7 +254,6 @@ class Région:
 
 
 class Scholdu:
-
     def __init__(self, grille):
         self.g = grille
         self.régions = dict()
@@ -279,7 +280,6 @@ class Scholdu:
 
 
 class GénérateurPremierPalier:
-
     def __init__(self, base):
         grille = Grille(base)
         self.code = Codec().encoder(grille)
@@ -308,14 +308,13 @@ def valider(grille):
 
 
 class Chercheur:
-
     def __init__(self, conf, progrès, nom_fichier):
         self.conf = conf
         self.progrès = progrès
         self.nom_fichier = nom_fichier
+        self.codec = Codec()
 
     def trouver(self):
-        codec = Codec()
         palier_max = self.conf.base().nb_cases()
         trace = False
         while self.progrès.palier < palier_max:
@@ -334,14 +333,11 @@ class Chercheur:
 
             étage = set()
             for code in lecteur:
-                grille = codec.décoder(code)
-                nouvelles = self.prochaines(grille)
-                for nouvelle in nouvelles:
+                nouveaux = self.prochains(code)
+                for neuf in nouveaux:
                     if (self.progrès.palier != palier_max - 1
-                            or self.valider(nouvelle)):
-                        nouveau_code = codec.encoder(nouvelle)
-                        étage.add(nouveau_code)
-
+                            or self.valider_code(neuf)):
+                        étage.add(neuf)
             étage = sorted(étage)
 
             self.progrès.palier += 1
@@ -366,14 +362,15 @@ class Chercheur:
         for code in lecteur:
             écrivain.ajouter(code)
 
-    def prochaines(self, grille_initiale):
+    def prochains(self, code):
         """Remplissage de la prochaine case
         """
         retour = list()
 
+        grille = self.codec.décoder(code)
         i = self.progrès.palier
-        h, l = grille_initiale.base.en_position(self.progrès.palier)
-        scholdu = Scholdu(grille_initiale)
+        h, l = grille.base.en_position(self.progrès.palier)
+        scholdu = Scholdu(grille)
 
         # Régions à compléter
         nb_régions = 0
@@ -381,35 +378,32 @@ class Chercheur:
         # → case du dessus
         if h > 0:
             nb_régions += 1
-            régions.add(grille_initiale[(h - 1, l)].région)
+            régions.add(grille[(h - 1, l)].région)
         # → case de gauche
         if l > 0:
             nb_régions += 1
-            régions.add(grille_initiale[(h, l - 1)].région)
+            régions.add(grille[(h, l - 1)].région)
         régions = sorted(régions)
 
         # Calcul des valeurs possibles au minimum, selon la règle du voisinage
-        valeurs_possibles = set(range(1, grille_initiale.base.maximum + 1))
+        valeurs_possibles = set(range(1, grille.base.maximum + 1))
         if l > 0:
-            valeurs_possibles.discard(grille_initiale[(h, l - 1)].valeur)
+            valeurs_possibles.discard(grille[(h, l - 1)].valeur)
         if h > 0:
-            valeurs_possibles.discard(grille_initiale[(h - 1, l)].valeur)
+            valeurs_possibles.discard(grille[(h - 1, l)].valeur)
             if l > 0:
-                valeurs_possibles.discard(grille_initiale[(h - 1,
-                                                           l - 1)].valeur)
-            if l + 1 < grille_initiale.base.largeur:
-                valeurs_possibles.discard(grille_initiale[(h - 1,
-                                                           l + 1)].valeur)
+                valeurs_possibles.discard(grille[(h - 1, l - 1)].valeur)
+            if l + 1 < grille.base.largeur:
+                valeurs_possibles.discard(grille[(h - 1, l + 1)].valeur)
 
         # 1) On étend chacune des régions de toutes les façons possibles
         if len(régions) == 1:
             r = régions[0]
             valeurs = valeurs_possibles.difference(scholdu.régions[r].valeurs)
             for v in valeurs:
-                grille = copy.deepcopy(grille_initiale)
                 grille.cases[i].région = r
                 grille.cases[i].valeur = v
-                retour.append(grille)
+                retour.append(self.codec.encoder(grille))
         else:
             for r1, r2 in itertools.permutations(régions, 2):
                 # On vérifie qu'on ne rendrait pas «r2» anormale de toute pièce
@@ -418,32 +412,11 @@ class Chercheur:
                     valeurs = valeurs_possibles.difference(
                         scholdu.régions[r1].valeurs)
                     for v in valeurs:
-                        grille = copy.deepcopy(grille_initiale)
                         grille.cases[i].région = r1
                         grille.cases[i].valeur = v
-                        retour.append(grille)
+                        retour.append(self.codec.encoder(grille))
 
-        # 2) On fusionne les régions voisines
-        for r1, r2 in itertools.combinations(régions, 2):
-            if scholdu.régions[r1].valeurs.isdisjoint(
-                    scholdu.régions[r2].valeurs):
-                valeurs = valeurs_possibles.difference(
-                    scholdu.régions[r1].valeurs)
-                valeurs.difference_update(scholdu.régions[r2].valeurs)
-                if len(valeurs) > 0:
-                    grille_modèle = copy.deepcopy(grille_initiale)
-                    for case in grille_modèle.cases:
-                        if case.région == r2:
-                            case.région = r1
-                    for v in valeurs:
-                        grille = copy.deepcopy(grille_modèle)
-                        grille.cases[i].région = r1
-                        grille.cases[i].valeur = v
-                        # TODO : cet appel est-il bien nécessaire ?
-                        grille.normaliser()
-                        retour.append(grille)
-
-        # 3) On crée une toute nouvelle région, en veillant à ce qu'elle ne
+        # 2) On crée une toute nouvelle région, en veillant à ce qu'elle ne
         # puisse pas être incomplète
         génération_autorisée = True
         if len(régions) == 1:
@@ -459,11 +432,26 @@ class Chercheur:
 
         if génération_autorisée:
             for v in valeurs_possibles:
-                if True or v <= grille_initiale.base.nb_cases() - i:
-                    grille = copy.deepcopy(grille_initiale)
-                    grille.cases[i].région = scholdu.région_max() + 1
-                    grille.cases[i].valeur = v
-                    retour.append(grille)
+                grille.cases[i].région = scholdu.région_max() + 1
+                grille.cases[i].valeur = v
+                retour.append(self.codec.encoder(grille))
+
+        # 3) On fusionne les régions voisines
+        for r1, r2 in itertools.combinations(régions, 2):
+            if scholdu.régions[r1].valeurs.isdisjoint(
+                    scholdu.régions[r2].valeurs):
+                valeurs = valeurs_possibles.difference(
+                    scholdu.régions[r1].valeurs)
+                valeurs.difference_update(scholdu.régions[r2].valeurs)
+                if len(valeurs) > 0:
+                    for case in grille.cases:
+                        if case.région == r2:
+                            case.région = r1
+                    grille.cases[i].région = r1
+                    grille.normaliser()
+                    for v in valeurs:
+                        grille.cases[i].valeur = v
+                        retour.append(self.codec.encoder(grille))
 
         # Production des nouveaux états
         return retour
