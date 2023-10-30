@@ -79,10 +79,20 @@ class GrilleNavigable:
                 for v in case.voisins:
                     if len(v.valeurs) == 1:
                         possibles.discard(v.valeurs[0])
-                for m in case.régions.cases:
+                for m in case.région.cases:
                     if m is not case and len(m.valeurs) == 1:
                         possibles.discard(m.valeurs[0])
                 case.valeurs[:] = sorted(possibles)
+
+    def __getitem__(self, position):
+        h, l = position
+        index = self.base.en_index(hauteur=h, largeur=l)
+        return self.cases[index]
+
+    def __setitem__(self, position, valeur):
+        h, l = position
+        index = self.base.en_index(hauteur=h, largeur=l)
+        self.cases[index] = valeur
 
     def _ajouter_voisin(self, case, h, l):
         """Ajoute la case de coordonnées (h, l) aux voisins de la case
@@ -144,7 +154,7 @@ class Traitement:
         while modification:
             modification = False
             for i, t in enumerate(techniques):
-                if t(self, grille):
+                if t(grille):
                     modification = True
                     if i > difficulté:
                         difficulté = i

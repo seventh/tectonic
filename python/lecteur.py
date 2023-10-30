@@ -9,7 +9,6 @@ from tectonic.serial2 import Codec
 
 
 class Configuration:
-
     def __init__(self):
         self.codes = list()
         self.lots = list()

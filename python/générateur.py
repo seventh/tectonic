@@ -336,7 +336,7 @@ class Chercheur:
                 nouveaux = self.prochains(code)
                 for neuf in nouveaux:
                     if (self.progrès.palier != palier_max - 1
-                            or self.valider_code(neuf)):
+                            or self.valider(neuf)):
                         étage.add(neuf)
             étage = sorted(étage)
 
@@ -406,7 +406,8 @@ class Chercheur:
                 retour.append(self.codec.encoder(grille))
         else:
             for r1, r2 in itertools.permutations(régions, 2):
-                # On vérifie qu'on ne rendrait pas «r2» anormale de toute pièce
+                # On vérifie qu'on ne rendrait pas «r2» incomplète de toute
+                # pièce
                 if not (scholdu.régions[r2].bordure == 1
                         and scholdu.régions[r2].est_incomplète()):
                     valeurs = valeurs_possibles.difference(
@@ -456,8 +457,9 @@ class Chercheur:
         # Production des nouveaux états
         return retour
 
-    def valider(self, grille):
+    def valider(self, code):
         retour = True
+        grille = self.codec.décoder(code)
         scholdu = Scholdu(grille)
         for r in scholdu.régions.values():
             if r.est_anormal():
