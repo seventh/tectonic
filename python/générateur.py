@@ -120,7 +120,7 @@ def identifier_meilleur_départ(conf):
                         if p.hauteur == conf.hauteur:
                             éligible = True
                         elif p.palier <= (min(p.hauteur, conf.hauteur) -
-                                          1) * p.largeur:
+                                          1) * p.largeur + 1:
                             éligible = True
                     elif p.palier < min(p.largeur, conf.largeur):
                         éligible = True
