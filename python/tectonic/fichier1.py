@@ -10,7 +10,6 @@ import os
 
 
 class Écrivain:
-
     def __init__(self, chemin):
         self.sortie = open(chemin, "wt")
 
@@ -19,12 +18,16 @@ class Écrivain:
         self.sortie.close()
         self.sortie = None
 
+    def configurer(self, base):
+        # Rien à faire. Présent simplement pour assurer la compatibilité avec
+        # d'autres formats
+        pass
+
     def ajouter(self, valeur):
         self.sortie.write(str(valeur) + "\n")
 
 
 class Lecteur:
-
     def __init__(self, chemin):
         self.chemin = chemin
         self.entrée = open(chemin, "rt")

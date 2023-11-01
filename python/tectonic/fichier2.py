@@ -26,7 +26,6 @@ from . import Base
 
 
 class Écrivain:
-
     def __init__(self, chemin):
         self.nb_mots_par_code = 8
 
@@ -36,16 +35,18 @@ class Écrivain:
 
     def __del__(self):
         # Enregistrement du nombre de codes
-        self.sortie.seek(12, 0)
+        self.sortie.seek(16, 0)
         self.sortie.write(struct.pack(">L", self.nb_codes))
         self.sortie.close()
         self.sortie = None
 
     def configurer(self, base):
         self.sortie.write(
-            struct.pack(">BBB", base.largeur, base.hauteur, base.maximum))
+            struct.pack(">BBB", base.hauteur, base.largeur, base.maximum))
+
         self.sortie.write(struct.pack(">B", self.nb_mots_par_code))
         self.sortie.write(b"\x00\x00\x00")
+
         # Réservation du champ pour «nombre de codes enregistrés»
         self.sortie.write(struct.pack(">L", 0))
 
@@ -70,7 +71,6 @@ class Écrivain:
 
 
 class Lecteur:
-
     def __init__(self, chemin):
         self.nb_mots_par_code = 8
 
@@ -79,15 +79,15 @@ class Lecteur:
         assert prélude == b"TECTONIC\x02"
 
         tampon = self.entrée.read(4)
-        largeur, hauteur, maximum, nb_mots_par_code = struct.unpack(
-            tampon, ">4B")
+        hauteur, largeur, maximum, nb_mots_par_code = struct.unpack(
+            ">4B", tampon)
         self.base = Base(largeur=largeur, hauteur=hauteur, maximum=maximum)
         self.nb_mots_par_code = nb_mots_par_code
 
         self.entrée.read(3)
 
         tampon = self.entrée.read(4)
-        self.nb_codes = struct.unpack(tampon, ">L")
+        self.nb_codes = struct.unpack(">L", tampon)[0]
         self.id_code = 0
 
     def __iter__(self):
@@ -96,12 +96,12 @@ class Lecteur:
         return self
 
     def __next__(self):
-        if self.id_code >= self.nb_code:
+        if self.id_code >= self.nb_codes:
             raise StopIteration
         else:
             retour = 0
             for i in range(self.nb_mots_par_code):
                 retour *= 4
-                retour += struct.unpack(">L", self.entrée.read(4))
+                retour += struct.unpack(">L", self.entrée.read(4))[0]
             self.id_code += 1
             return retour

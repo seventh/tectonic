@@ -16,7 +16,8 @@ class Codec:
 
     FORMAT = 2
 
-    def __init__(self):
+    def __init__(self, base=None):
+        # L'argument 'base' est proposé par compatibilité
         self.pad_dimension = 256
 
     def décoder(self, code):
