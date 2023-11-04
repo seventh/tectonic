@@ -62,33 +62,43 @@ class Configuration:
 class Progression:
     """Progrès de recherche : base & palier atteints
     """
-    def __init__(self, palier, hauteur, largeur, maximum):
-        self.palier = palier
+
+    def __init__(self, hauteur, largeur, maximum, palier=None):
         self.hauteur = hauteur
         self.largeur = largeur
         self.maximum = maximum
+        if palier is None:
+            self.palier = self.hauteur * self.largeur
+        else:
+            self.palier = palier
 
     def __str__(self):
-        return (f"p{self.palier}"
-                f"h{self.hauteur}"
-                f"l{self.largeur}"
-                f"m{self.maximum}")
+        retour = (f"h{self.hauteur:0>2}"
+                  f"l{self.largeur:0>2}"
+                  f"m{self.maximum:0>2}")
+        if self.palier != self.hauteur * self.largeur:
+            retour += f"-p{self.palier:0>2}"
+        return retour
 
     def __repr__(self):
         return (f"{self.__class__.__name__}[0x{id(self):x}]"
-                f"(palier={self.palier},"
-                f"hauteur={self.hauteur},"
+                f"(hauteur={self.hauteur},"
                 f"largeur={self.largeur},"
-                f"maximum={self.maximum})")
+                f"maximum={self.maximum},"
+                f"palier={self.palier})")
 
-    _REGEX = re.compile("p(\\d+)h(\\d+)l(\\d+)m(\\d+)")
+    _REGEX = re.compile("h(\\d+)l(\\d+)m(\\d+)(?:-p(\\d+))?")
 
     @staticmethod
     def depuis_chaîne(chaîne):
         retour = None
         m = Progression._REGEX.search(chaîne)
         if m:
-            retour = Progression(*(int(x) for x in m.groups()))
+            if m.groups()[3] is None:
+                lg = 3
+            else:
+                lg = 4
+            retour = Progression(*(int(x) for x in m.groups()[:lg]))
         return retour
 
     def base(self):
@@ -145,7 +155,10 @@ def identifier_meilleur_départ(conf):
                         extension_min = extension
 
     if meilleur_fichier is None:
-        return (Progression(0, conf.hauteur, conf.largeur, conf.maximum), None)
+        return (Progression(hauteur=conf.hauteur,
+                            largeur=conf.largeur,
+                            maximum=conf.maximum,
+                            palier=0), None)
     else:
         return (meilleur_progrès, meilleur_fichier)
 
@@ -198,8 +211,10 @@ def convertir(conf, progrès, nom_fichier):
     codes.sort()
 
     # Écriture pour capitaliser sur ces résultats
-    progrès = Progression(progrès.palier, conf.hauteur, conf.largeur,
-                          conf.maximum)
+    progrès = Progression(hauteur=conf.hauteur,
+                          largeur=conf.largeur,
+                          maximum=conf.maximum,
+                          palier=progrès.palier)
     nom_fichier = str(progrès) + ".log"
 
     écrivain = Écrivain(os.path.join(conf.chemin, nom_fichier))
@@ -254,6 +269,7 @@ class Région:
 
 
 class Scholdu:
+
     def __init__(self, grille):
         self.g = grille
         self.régions = dict()
@@ -280,6 +296,7 @@ class Scholdu:
 
 
 class GénérateurPremierPalier:
+
     def __init__(self, base):
         grille = Grille(base)
         self.code = Codec().encoder(grille)
@@ -308,6 +325,7 @@ def valider(grille):
 
 
 class Chercheur:
+
     def __init__(self, conf, progrès, nom_fichier):
         self.conf = conf
         self.progrès = progrès
@@ -351,16 +369,6 @@ class Chercheur:
             for code in étage:
                 écrivain.ajouter(code)
             del écrivain
-
-        # Écriture finale
-        lecteur = Lecteur(os.path.join(self.conf.chemin, self.nom_fichier))
-        écrivain = Écrivain(
-            os.path.join(self.conf.chemin, (f"h{self.conf.hauteur}"
-                                            f"l{self.conf.largeur}"
-                                            f"m{self.conf.maximum}"
-                                            ".log")))
-        for code in lecteur:
-            écrivain.ajouter(code)
 
     def prochains(self, code):
         """Remplissage de la prochaine case
