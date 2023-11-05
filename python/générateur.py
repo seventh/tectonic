@@ -94,11 +94,8 @@ class Progression:
         retour = None
         m = Progression._REGEX.search(chaîne)
         if m:
-            if m.groups()[3] is None:
-                lg = 3
-            else:
-                lg = 4
-            retour = Progression(*(int(x) for x in m.groups()[:lg]))
+            retour = Progression(*(int(x) for x in m.groups()
+                                   if x is not None))
         return retour
 
     def base(self):
@@ -195,13 +192,12 @@ def convertir(conf, progrès, nom_fichier):
                 grille.base.maximum = conf.maximum
 
         if retenu:
-            if extension != 0:
-                grille.base.hauteur = conf.hauteur
-                grille.base.largeur = conf.largeur
-                if extension > 0:
-                    grille.cases.extend(cases_ext)
-                elif extension < 0:
-                    del grille.cases[extension:]
+            grille.base.hauteur = conf.hauteur
+            grille.base.largeur = conf.largeur
+            if extension > 0:
+                grille.cases.extend(cases_ext)
+            elif extension < 0:
+                del grille.cases[extension:]
 
             code = codec.encoder(grille)
             codes[nb_codes] = code
