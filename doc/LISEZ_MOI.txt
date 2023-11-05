@@ -92,3 +92,35 @@ toujours favoriser la génération de grilles telles que H >= L, quitte à
 intervertir les dimensions caractéristiques. Alors, une fois que l'on obtient
 les grilles L×H, il ne reste plus qu'à les transposer une à une pour obtenir
 les grilles H×L.
+
+== Parallélisation des traitements
+
+Afin d'accélérer les traitements, on cherche à les mener de front, en
+parallèle. Il y a cependant quelques précautions à prendre.
+
+La stratégie actuelle de génération de palier produit des doublons, du fait de
+la fusion a posteriori de Régions encore distinctes au palier précédent. Cette
+fusion est indispensable pour atteindre certaines Grilles qui ne peuvent pas
+être obtenues d'une autre manière. C'est pourquoi la génération utilise un
+`set` pour stocker les résultats, afin d'assurer ce dédoublonnage.
+
+=== Dédoublonnage
+
+Ce dédoublonnage est extrêmement coûteux en mémoire, à tel point que c'est
+devenu le facteur limitant de la génération actuellement. Deux solutions pour
+s'en passer :
+
+1) Ne plus générer de doublon tout court. Cela consisterait à vérifier avant
+d'envisager la fusion que la grille issue de la fusion mais sans ajout d'une
+nouvelle valeur n'est pas déjà présente dans le palier précédent.
+2) Différer le dédoublonnage. Produire toutes les grilles possibles avec
+doublons, puis effectuer une passe de tri/dédoublonnage.
+
+La recherche d'une grille déjà existante peut se faire par dichotomie dans le
+palier précédent. À étudier.
+
+Une autre façon de déterminer si on va générer un doublon, c'est de considérer
+si les deux Régions à fusionner sont limitrophes. Si c'est bien le cas, une
+autre version de la grille existe déjà avec ces régions ne formant qu'un.
+
+=== Parallélisation

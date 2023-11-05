@@ -227,10 +227,11 @@ class Région:
     """
 
     valeurs: set = dataclasses.field(default_factory=set)
+    voisins: set = dataclasses.field(default_factory=set)
     bordure: int = 0
 
     def __eq__(self, autre):
-        return (self.valeurs == autre.valeurs
+        return (self.valeurs == autre.valeurs and self.voisins == autre.voisins
                 and self.bordure == autre.bordure)
 
     def est_anormal(self):
@@ -284,8 +285,14 @@ class Scholdu:
                 for h2, l2 in [(h1, l1 + 1), (h1 + 1, l1)]:
                     if (h2 < self.g.base.hauteur and l2 < self.g.base.largeur):
                         j = self.g.base.en_index(hauteur=h2, largeur=l2)
-                        if self.g.cases[j].région < 0:
+                        r2 = self.g.cases[j].région
+                        if r2 < 0:
                             self.régions.setdefault(r1, Région()).bordure += 1
+                        elif r2 != r1:
+                            self.régions.setdefault(r1,
+                                                    Région()).voisins.add(r2)
+                            self.régions.setdefault(r2,
+                                                    Région()).voisins.add(r1)
 
     def région_max(self):
         return max(self.régions, default=-1)
@@ -332,6 +339,7 @@ class Chercheur:
         palier_max = self.conf.base().nb_cases()
         trace = False
         while self.progrès.palier < palier_max:
+            # Lecteur
             if self.nom_fichier is None:
                 if not trace:
                     logging.info("Initialisation du contexte")
@@ -345,25 +353,25 @@ class Chercheur:
                                  f"{lecteur.nb_codes} grilles")
                     trace = True
 
-            étage = set()
+            # Écrivain
+            self.progrès.palier += 1
+            self.nom_fichier = str(self.progrès) + ".log"
+            self.progrès.palier -= 1
+            écrivain = Écrivain(
+                os.path.join(self.conf.chemin, self.nom_fichier))
+
+            # Génération
             for code in lecteur:
                 nouveaux = self.prochains(code)
                 for neuf in nouveaux:
-                    if (self.progrès.palier != palier_max - 1
+                    if (self.progrès.palier != palier_max
                             or self.valider(neuf)):
-                        étage.add(neuf)
-            étage = sorted(étage)
+                        écrivain.ajouter(neuf)
 
+            # Itération
             self.progrès.palier += 1
-            self.nom_fichier = str(self.progrès) + ".log"
-
             logging.info(f"Palier n°{self.progrès.palier} atteint : "
-                         f"{len(étage)} grilles")
-
-            écrivain = Écrivain(
-                os.path.join(self.conf.chemin, self.nom_fichier))
-            for code in étage:
-                écrivain.ajouter(code)
+                         f"{écrivain.nb_codes} grilles")
             del écrivain
 
     def prochains(self, code):
@@ -373,7 +381,7 @@ class Chercheur:
 
         grille = self.codec.décoder(code)
         i = self.progrès.palier
-        h, l = grille.base.en_position(self.progrès.palier)
+        h, l = grille.base.en_position(i)
         scholdu = Scholdu(grille)
 
         # Régions à compléter
@@ -443,8 +451,9 @@ class Chercheur:
 
         # 3) On fusionne les régions voisines
         for r1, r2 in itertools.combinations(régions, 2):
-            if scholdu.régions[r1].valeurs.isdisjoint(
-                    scholdu.régions[r2].valeurs):
+            if (r2 not in scholdu.régions[r1].voisins
+                    and scholdu.régions[r1].valeurs.isdisjoint(
+                        scholdu.régions[r2].valeurs)):
                 valeurs = valeurs_possibles.difference(
                     scholdu.régions[r1].valeurs)
                 valeurs.difference_update(scholdu.régions[r2].valeurs)

@@ -10,8 +10,10 @@ import os
 
 
 class Écrivain:
+
     def __init__(self, chemin):
         self.sortie = open(chemin, "wt")
+        self._nb_codes = 0
 
     def __del__(self):
         self.sortie.write("-1\n")
@@ -25,9 +27,17 @@ class Écrivain:
 
     def ajouter(self, valeur):
         self.sortie.write(str(valeur) + "\n")
+        self._nb_codes += 1
+
+    @property
+    def nb_codes(self):
+        """Nombre total d'enregistrements disponibles
+        """
+        return self._nb_codes
 
 
 class Lecteur:
+
     def __init__(self, chemin):
         self.chemin = chemin
         self.entrée = open(chemin, "rt")
