@@ -216,7 +216,7 @@ def convertir(conf, progrès, nom_fichier):
     écrivain = Écrivain(os.path.join(conf.chemin, nom_fichier))
     for code in codes:
         écrivain.ajouter(code)
-    del écrivain
+    écrivain.clore()
 
     return progrès, nom_fichier
 
@@ -372,7 +372,7 @@ class Chercheur:
             self.progrès.palier += 1
             logging.info(f"Palier n°{self.progrès.palier} atteint : "
                          f"{écrivain.nb_codes} grilles")
-            del écrivain
+            écrivain.clore()
 
     def prochains(self, code):
         """Remplissage de la prochaine case

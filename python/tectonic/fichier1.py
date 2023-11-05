@@ -15,10 +15,11 @@ class Écrivain:
         self.sortie = open(chemin, "wt")
         self._nb_codes = 0
 
-    def __del__(self):
-        self.sortie.write("-1\n")
-        self.sortie.close()
-        self.sortie = None
+    @property
+    def nb_codes(self):
+        """Nombre total d'enregistrements disponibles
+        """
+        return self._nb_codes
 
     def configurer(self, base):
         # Rien à faire. Présent simplement pour assurer la compatibilité avec
@@ -29,11 +30,10 @@ class Écrivain:
         self.sortie.write(str(valeur) + "\n")
         self._nb_codes += 1
 
-    @property
-    def nb_codes(self):
-        """Nombre total d'enregistrements disponibles
-        """
-        return self._nb_codes
+    def clore(self):
+        self.sortie.write("-1\n")
+        self.sortie.close()
+        self.sortie = None
 
 
 class Lecteur:

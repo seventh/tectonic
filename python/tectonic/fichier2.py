@@ -26,19 +26,19 @@ from . import Base
 
 
 class Écrivain:
+
     def __init__(self, chemin):
         self.nb_mots_par_code = 8
 
-        self.nb_codes = 0
         self.sortie = open(chemin, "wb")
         self.sortie.write(b"TECTONIC\x02")
+        self._nb_codes = 0
 
-    def __del__(self):
-        # Enregistrement du nombre de codes
-        self.sortie.seek(16, 0)
-        self.sortie.write(struct.pack(">L", self.nb_codes))
-        self.sortie.close()
-        self.sortie = None
+    @property
+    def nb_codes(self):
+        """Nombre total d'enregistrements disponibles
+        """
+        return self._nb_codes
 
     def configurer(self, base):
         self.sortie.write(
@@ -67,10 +67,18 @@ class Écrivain:
         for mot in mots:
             self.sortie.write(struct.pack(">L", mot))
         self.sortie.flush()
-        self.nb_codes += 1
+        self._nb_codes += 1
+
+    def clore(self):
+        # Enregistrement du nombre de codes
+        self.sortie.seek(16, 0)
+        self.sortie.write(struct.pack(">L", self._nb_codes))
+        self.sortie.close()
+        self.sortie = None
 
 
 class Lecteur:
+
     def __init__(self, chemin):
         self.nb_mots_par_code = 8
 

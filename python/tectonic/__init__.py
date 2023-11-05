@@ -42,6 +42,7 @@ class Case:
 
 
 class Grille:
+
     def __init__(self, base):
         self.base = base
 
