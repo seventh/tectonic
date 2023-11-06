@@ -163,15 +163,12 @@ def identifier_meilleur_départ(conf):
 def convertir(conf, progrès, nom_fichier):
     logging.info(f"Conversion depuis «{nom_fichier}»")
 
-    # Chargement de tous les codes, et conversion à la volée
-    lecteur = Lecteur(os.path.join(conf.chemin, nom_fichier))
     codec = Codec()
-    codes = [None] * lecteur.nb_codes
-    nb_codes = 0
 
+    # Configuration de la lecture
+    lecteur = Lecteur(os.path.join(conf.chemin, nom_fichier))
     filtrage_case_par_case = (progrès.maximum != conf.maximum)
     extension = conf.base().nb_cases() - progrès.base().nb_cases()
-
     if extension <= 0:
         cases_ext = None
     else:
@@ -179,6 +176,15 @@ def convertir(conf, progrès, nom_fichier):
         for i in range(extension):
             cases_ext[i] = Case()
 
+    # Configuration de l'écriture
+    progrès = Progression(hauteur=conf.hauteur,
+                          largeur=conf.largeur,
+                          maximum=conf.maximum,
+                          palier=progrès.palier)
+    nom_fichier = str(progrès) + ".log"
+    écrivain = Écrivain(os.path.join(conf.chemin, nom_fichier))
+
+    # Conversion à la volée des codes
     for code in lecteur:
         grille = codec.décoder(code)
 
@@ -200,22 +206,7 @@ def convertir(conf, progrès, nom_fichier):
                 del grille.cases[extension:]
 
             code = codec.encoder(grille)
-            codes[nb_codes] = code
-            nb_codes += 1
-
-    del codes[nb_codes:]
-    codes.sort()
-
-    # Écriture pour capitaliser sur ces résultats
-    progrès = Progression(hauteur=conf.hauteur,
-                          largeur=conf.largeur,
-                          maximum=conf.maximum,
-                          palier=progrès.palier)
-    nom_fichier = str(progrès) + ".log"
-
-    écrivain = Écrivain(os.path.join(conf.chemin, nom_fichier))
-    for code in codes:
-        écrivain.ajouter(code)
+            écrivain.ajouter(code)
     écrivain.clore()
 
     return progrès, nom_fichier
@@ -364,7 +355,7 @@ class Chercheur:
             for code in lecteur:
                 nouveaux = self.prochains(code)
                 for neuf in nouveaux:
-                    if (self.progrès.palier != palier_max
+                    if (self.progrès.palier != palier_max - 1
                             or self.valider(neuf)):
                         écrivain.ajouter(neuf)
 
