@@ -327,7 +327,8 @@ class Chercheur:
         self.codec = Codec()
 
     def trouver(self):
-        palier_max = self.conf.base().nb_cases()
+        base = self.conf.base()
+        palier_max = base.nb_cases()
         trace = False
         while self.progrès.palier < palier_max:
             # Lecteur
@@ -335,7 +336,7 @@ class Chercheur:
                 if not trace:
                     logging.info("Initialisation du contexte")
                     trace = True
-                lecteur = GénérateurPremierPalier(self.conf.base())
+                lecteur = GénérateurPremierPalier(base)
             else:
                 lecteur = Lecteur(
                     os.path.join(self.conf.chemin, self.nom_fichier))
@@ -355,8 +356,9 @@ class Chercheur:
             for code in lecteur:
                 nouveaux = self.prochains(code)
                 for neuf in nouveaux:
-                    if (self.progrès.palier != palier_max - 1
-                            or self.valider(neuf)):
+                    if ((self.progrès.palier % base.largeur) !=
+                            base.largeur - 1 or self.valider(
+                                neuf, self.progrès.palier, palier_max)):
                         écrivain.ajouter(neuf)
 
             # Itération
@@ -461,13 +463,16 @@ class Chercheur:
         # Production des nouveaux états
         return retour
 
-    def valider(self, code):
+    def valider(self, code, palier, palier_max):
         retour = True
         grille = self.codec.décoder(code)
-        scholdu = Scholdu(grille)
-        for r in scholdu.régions.values():
-            if r.est_anormal():
-                retour = False
+        if not grille.est_canonique():
+            retour = False
+        elif palier == palier_max - 1:
+            scholdu = Scholdu(grille)
+            for r in scholdu.régions.values():
+                if r.est_anormal():
+                    retour = False
         return retour
 
 

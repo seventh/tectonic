@@ -3,7 +3,6 @@
 """
 
 import dataclasses
-import logging
 
 
 @dataclasses.dataclass
@@ -179,6 +178,34 @@ class Grille:
         """
         régions = set([c.région for c in self.cases if c.région >= 0])
         return len(régions)
+
+    def est_canonique(self):
+        """Vrai ssi la grille est une forme canonique
+
+        La forme canonique permet d'éliminer les symétries
+        """
+        # Premier filtre : les valeurs des cases
+        for h in range(self.base.hauteur // 2):
+            for l in range(self.base.largeur // 2):
+                coords = [(h, l), (h, self.base.largeur - 1 - l),
+                          (self.base.hauteur - 1 - h, l),
+                          (self.base.hauteur - 1 - h,
+                           self.base.largeur - 1 - l)]
+                cases = [self[p].valeur for p in coords]
+                valeurs = [v for v in cases[1:] if v >= 1]
+                if len(valeurs) == 0:
+                    if cases[0] >= 1:
+                        return True
+                else:
+                    for v in valeurs:
+                        if v < cases[0]:
+                            return False  # cases[0] > min(valeurs)
+                        elif v > cases[0]:
+                            return True  # cases[0] < max(valeurs)
+
+        # TODO Second filtre : la structure
+
+        return True
 
     def est_normale(self):
         """Vrai ssi la grille respecte la forme normale
