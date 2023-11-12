@@ -26,18 +26,16 @@ class Configuration:
     largeur: int = 4
     maximum: int = 5
     chemin: str = "../data"
-
-    def __eq__(self, autre):
-        return (self.hauteur == autre.hauteur and self.largeur == autre.largeur
-                and self.maximum == autre.maximum
-                and self.chemin == autre.chemin)
+    mono_palier: bool = False
 
     @staticmethod
     def charger():
         retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:")
+        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:q")
         for opt, val in opts:
-            if not val.isdecimal():
+            if opt == "-q":
+                retour.mono_palier = True
+            elif not val.isdecimal():
                 logging.warning(f"Option «{opt} {val}» ignorée")
                 continue
             else:
@@ -356,9 +354,8 @@ class Chercheur:
             for code in lecteur:
                 nouveaux = self.prochains(code)
                 for neuf in nouveaux:
-                    if ((self.progrès.palier % base.largeur) !=
-                            base.largeur - 1 or self.valider(
-                                neuf, self.progrès.palier, palier_max)):
+                    if (self.progrès.palier != palier_max - 1
+                            or self.valider(neuf)):
                         écrivain.ajouter(neuf)
 
             # Itération
@@ -366,6 +363,10 @@ class Chercheur:
             logging.info(f"Palier n°{self.progrès.palier} atteint : "
                          f"{écrivain.nb_codes} grilles")
             écrivain.clore()
+
+            # Génération d'un seul palier demandée
+            if self.conf.mono_palier:
+                break
 
     def prochains(self, code):
         """Remplissage de la prochaine case
@@ -463,16 +464,13 @@ class Chercheur:
         # Production des nouveaux états
         return retour
 
-    def valider(self, code, palier, palier_max):
+    def valider(self, code):
         retour = True
         grille = self.codec.décoder(code)
-        if not grille.est_canonique():
-            retour = False
-        elif palier == palier_max - 1:
-            scholdu = Scholdu(grille)
-            for r in scholdu.régions.values():
-                if r.est_anormal():
-                    retour = False
+        scholdu = Scholdu(grille)
+        for r in scholdu.régions.values():
+            if r.est_anormal():
+                retour = False
         return retour
 
 
