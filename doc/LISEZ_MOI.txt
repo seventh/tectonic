@@ -124,3 +124,57 @@ si les deux Régions à fusionner sont limitrophes. Si c'est bien le cas, une
 autre version de la grille existe déjà avec ces régions ne formant qu'un.
 
 === Parallélisation
+
+Le foisonnement d'un palier à l'autre n'est pas constant. Les premiers paliers
+multiplient le nombre de grilles par environ  `maximum`. Puis, en fonction des
+dimensions de la grille, les contraintes de placement viennent limiter ce
+foisonnement. Le dernier palier vient résoudre toutes les contraintes et
+présente généralement un foisonnement inférieur à l'unité.
+
+Une forme scalable de parallélisation pourrait être de générer en traitant des
+lots de grilles d'un palier donné.
+
+Imaginons, à un moment donné, il y a :
+- 122 grilles du palier 3 qui n'ont pas encore été traitées pour génération ;
+- 643 grilles du palier 4… ;
+- 12 grilles du palier 5.
+
+On considère qu'il n'est pas efficace de traiter un lot de moins 100 grilles à
+la fois. Ce qui fait qu'on a, de prêt :
+- 1 lot pour la conversion 3→4
+- 6 lots pour la conversion 4→5
+- 0 lot pour la conversion 5→6
+
+À partir de là, on peut considérer différentes stratégies :
+* traiter en priorité la génération des paliers bas, pour minimiser le nombre
+de paliers gérés simultanément ;
+* traiter en priorité la génération des paliers hauts, pour obtenir des
+résultats rapidement ;
+* traiter les lots par ordre d'arrivée.
+
+On peut également décider de n'avoir qu'un générateur par palier, ou au
+contraire, plusieurs. Pour l'arrêt intempestif du programme, ça peut avoir son
+importance.
+
+==== Contexte à mémoriser
+
+Toutes les stratégies de parallélisation doivent pouvoir s'appuyer sur la même
+formalisation de la progression, qui doit ressembler à quelque chose comme:
+
+  palier → (nb, nb_lus)
+
+La mise-à-jour de ce contexte diffère en fonction des résultats sauvegardés sur
+disque, ou pas encore. Sur disque, le contexte est enregistré par flip-flop.
+
+D'un palier, je consomme un nouveau lot pour le confier à un étage de
+génération : en mémoire, nb_lus[palier] += 100
+Je reçois le résultat de la génération, mais ce n'est pas le prochain résultat
+attendu : je mémorise.
+Je reçois le résultat de la génération, et ce résultat est bien le suivant qui
+était attendu : j'écris sur disque
+- les lots en attente dans le fichier de palier correspondant (fichier PALIER)
+- nb_lus[palier-1] += 100 et nb[palier] += taille du lot (fichier CONTEXTE)
+
+Si pour un palier donné, trop de lots sont en attente, plus aucun lot n'est
+émis pour aucun palier, histoire de favoriser la resynchronisation, et éviter
+de perdre des résultats intermédiaires.

@@ -27,11 +27,12 @@ class Configuration:
     maximum: int = 5
     chemin: str = "../data"
     mono_palier: bool = False
+    palier_max: int = None
 
     @staticmethod
     def charger():
         retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:q")
+        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:qs:")
         for opt, val in opts:
             if opt == "-q":
                 retour.mono_palier = True
@@ -46,8 +47,14 @@ class Configuration:
                     retour.largeur = val
                 elif opt == "-m" and val > 2:
                     retour.maximum = val
+                elif opt == "-s" and val > 0:
+                    retour.palier_max = val
         if len(args) != 0:
             retour.chemin = args[0]
+
+        if (retour.palier_max is None
+                or retour.palier_max > retour.hauteur * retour.largeur):
+            retour.palier_max = retour.hauteur * retour.largeur
 
         return retour
 
@@ -60,7 +67,6 @@ class Configuration:
 class Progression:
     """Progrès de recherche : base & palier atteints
     """
-
     def __init__(self, hauteur, largeur, maximum, palier=None):
         self.hauteur = hauteur
         self.largeur = largeur
@@ -92,8 +98,8 @@ class Progression:
         retour = None
         m = Progression._REGEX.search(chaîne)
         if m:
-            retour = Progression(*(int(x) for x in m.groups()
-                                   if x is not None))
+            retour = Progression(*(int(x)
+                                   for x in m.groups() if x is not None))
         return retour
 
     def base(self):
@@ -255,7 +261,6 @@ class Région:
 
 
 class Scholdu:
-
     def __init__(self, grille):
         self.g = grille
         self.régions = dict()
@@ -288,7 +293,6 @@ class Scholdu:
 
 
 class GénérateurPremierPalier:
-
     def __init__(self, base):
         grille = Grille(base)
         self.code = Codec().encoder(grille)
@@ -317,7 +321,6 @@ def valider(grille):
 
 
 class Chercheur:
-
     def __init__(self, conf, progrès, nom_fichier):
         self.conf = conf
         self.progrès = progrès
@@ -326,9 +329,8 @@ class Chercheur:
 
     def trouver(self):
         base = self.conf.base()
-        palier_max = base.nb_cases()
         trace = False
-        while self.progrès.palier < palier_max:
+        while self.progrès.palier < self.conf.palier_max:
             # Lecteur
             if self.nom_fichier is None:
                 if not trace:
@@ -354,7 +356,7 @@ class Chercheur:
             for code in lecteur:
                 nouveaux = self.prochains(code)
                 for neuf in nouveaux:
-                    if (self.progrès.palier != palier_max - 1
+                    if (self.progrès.palier != base.nb_cases() - 1
                             or self.valider(neuf)):
                         écrivain.ajouter(neuf)
 
