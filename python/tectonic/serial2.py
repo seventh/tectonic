@@ -47,6 +47,10 @@ class Codec:
             if région > 0:
                 case.région = région - 1
 
+            # -- Optimisation : interruption prématurée
+            if code == 0:
+                break
+
         return retour
 
     def encoder(self, grille):

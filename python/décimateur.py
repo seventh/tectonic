@@ -10,7 +10,6 @@ from tectonic.serial2 import Codec
 
 
 class Configuration:
-
     def __init__(self):
         self.codes = list()
         self.lots = list()
@@ -57,7 +56,6 @@ def filtrer(nom, itérateur):
 
 if __name__ == "__main__":
     CONF = Configuration.charger()
-    CODEC = Codec()
 
     if len(CONF.codes) > 0:
         filtrer(None, CONF.codes)

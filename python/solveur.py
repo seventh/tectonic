@@ -19,15 +19,28 @@ from tectonic.fichier1 import Lecteur
 
 
 class CaseNavigable:
-    def __init__(self, valeur, région):
+    def __init__(self, position, valeur, région):
+        self.position = position
         self.région = région
         if valeur > 0:
-            self.valeurs = [valeur]
+            self.libres = None
+            self.valeur = valeur
         else:
-            self.valeurs = list()
+            self.libres = set()
+            self.valeur = None
 
         # Dans les huit directions
         self.voisins = list()
+
+    def fixer(self, valeur=None):
+        if valeur is None:
+            assert len(self.libres) == 1
+            self.valeur = self.libres.pop()
+        else:
+            assert valeur in self.libres
+            self.valeur = valeur
+
+        self.libres = None
 
 
 class RégionNavigable:
@@ -42,7 +55,7 @@ class RégionNavigable:
     def forcés(self):
         """Valeurs fixées
         """
-        return set([c.valeur for c in self.cases if c.valeur > 0])
+        return set([c.valeur for c in self.cases if c.valeur is not None])
 
     def libres(self):
         """Valeurs non encore fixées
@@ -57,7 +70,8 @@ class GrilleNavigable:
         self.cases = [None] * len(grille.cases)
         for i, case in enumerate(grille.cases):
             région = self.régions[case.région]
-            self.cases[i] = CaseNavigable(case.valeur, région)
+            position = grille.base.en_position(i)
+            self.cases[i] = CaseNavigable(position, case.valeur, région)
             région.cases.append(self.cases[i])
 
         # Voisinages
@@ -74,15 +88,13 @@ class GrilleNavigable:
 
         # Initialisation des possibles
         for case in self.cases:
-            if len(case.valeurs) == 0:
-                possibles = set(range(len(case.région)))
+            if case.valeur is None:
+                case.libres = set(range(1, len(case.région)))
                 for v in case.voisins:
-                    if len(v.valeurs) == 1:
-                        possibles.discard(v.valeurs[0])
+                    case.libres.discard(v.valeur)
                 for m in case.région.cases:
-                    if m is not case and len(m.valeurs) == 1:
-                        possibles.discard(m.valeurs[0])
-                case.valeurs[:] = sorted(possibles)
+                    if m is not case:
+                        case.libres.discard(m.valeur)
 
     def __getitem__(self, position):
         h, l = position
@@ -104,38 +116,36 @@ class GrilleNavigable:
 
 class Traitement:
     def __init__(self):
-        self.codes = list()
+        self.codec = Codec()
         self.lots = list()
 
     @staticmethod
-    def from_sys_argv():
+    def charger():
         retour = Traitement()
 
+        lecteurs = list()
         opts, args = getopt.getopt(sys.argv[1:], "f:")
         for opt, val in opts:
             if opt == "-f":
-                retour.lots.append(val)
-        retour.codes[:] = [int(c) for c in args]
+                lecteurs.append(Lecteur(val))
+        codes = [int(c) for c in args]
+
+        retour.lots = [codes, *lecteurs]
 
         return retour
 
     def effectuer(self):
-        codec = Codec()
-
-        for code in self.codes:
-            grille = codec.décoder(code)
-            self.gérer_grille(grille)
-
         for lot in self.lots:
-            lecteur = Lecteur(lot)
-            for code in lecteur:
-                grille = codec.décoder(code)
-                self.gérer_grille(grille)
+            for code in lot:
+                self.gérer_grille(code)
 
-    def gérer_grille(self, grille):
+    def gérer_grille(self, code):
+        grille = self.codec.décoder(code)
+
         # D'abord, on supprime des valeurs
-        n = random.randint(1, grille.base.nb_cases() // 2)
-        indices = random.sample(range(grille.base.nb_cases()), n)
+        n = grille.base.nb_cases()
+        k = random.randint(n // 4, (3 * n) // 4)
+        indices = random.sample(range(n), k)
         for i in indices:
             grille.cases[i].valeur = 0
         logging.info("Grille à résoudre :\n" + str(grille))
@@ -168,12 +178,21 @@ class Traitement:
 
         https://sudoku.megastar.fr/full-block/
         """
-        pass
+        retour = False
+        for r in grille.régions.values():
+            if len(r.libres()) == 1:
+                for c in r.cases:
+                    if (c.libres is not None and len(c.libres) == 1):
+                        retour = True
+                        c.fixer()
+                        logging.info(
+                            f"Technique 1.1 : {c.position} = {c.valeur}")
+        return retour
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     random.seed(1977)
 
-    T = Traitement.from_sys_argv()
+    T = Traitement.charger()
     T.effectuer()

@@ -178,3 +178,56 @@ Je reçois le résultat de la génération, et ce résultat est bien le suivant 
 Si pour un palier donné, trop de lots sont en attente, plus aucun lot n'est
 émis pour aucun palier, histoire de favoriser la resynchronisation, et éviter
 de perdre des résultats intermédiaires.
+
+== Stockage
+
+Rappel : un puzzle est l'association d'une grille complétée avec un masque.
+Le joueur doit retrouver les valeurs masquées. La difficulté d'un puzzle n'est
+pas lié à ses dimensions mais à la complexité des règles appliquées pour la
+résolution.
+
+On fait volontairement abstration des symétries possibles pour
+une grille/un puzzle.
+
+=== Stockage d'une grille
+
+Une grille est la combinaison :
+- de dimensions ;
+- de valeurs pour les cases ;
+- de blocs enchevêtrés pour regrouper ces valeurs (régions).
+
+Le format de sérialisation actuel donne les deux informations simultanément
+pour une grille donnée : valeur de case, et identifiant de région.
+
+Avantages du format :
+* Codage préfixe : le changement de dimensions ne modifie pas la valeur du code
+
+Inconvénients du format :
+* En ne distintinguant pas la structure (les régions) des valeurs, le format ne
+facilite pas l'identification des structures communes, ou des séquences
+communes pour les valeurs des cases.
+
+Attention cependant, le codage est préfixe parce que la stratégie de génération
+produit des valeurs dans le même ordre de leur désérialisation.
+
+Si, à proprement parler, la valeur maximale n'est pas une donnée primordiale,
+elle peut être exploitée pour un stockage plus efficace, comme le nombre de
+régions par ailleurs.
+
+=== Stockage d'un puzzle
+
+Les informations liées à un puzzle sont restreintes :
+* Identifiant de grille
+* Masque binaire indiquant pour chaque case si elle est connue ou non
+* Niveau de difficulté.
+
+=== Stockage global
+
+On peut imaginer une structure arborescente
+
+data/
++ hXXlYY/
+| + mZZ /
+| | + palier-pUU.txt
+| | + grilles.txt
+| | + dTT.txt

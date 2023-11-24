@@ -28,13 +28,16 @@ class Configuration:
     chemin: str = "../data"
     mono_palier: bool = False
     palier_max: int = None
+    strict: bool = False
 
     @staticmethod
     def charger():
         retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:qs:")
+        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:qs:", ["strict"])
         for opt, val in opts:
-            if opt == "-q":
+            if opt == "--strict":
+                retour.strict = True
+            elif opt == "-q":
                 retour.mono_palier = True
             elif not val.isdecimal():
                 logging.warning(f"Option «{opt} {val}» ignorée")
@@ -126,7 +129,11 @@ def identifier_meilleur_départ(conf):
             p = Progression.depuis_chaîne(f)
             if p is not None:
                 éligible = False
-                if p.maximum >= conf.maximum:
+                if conf.strict:
+                    éligible = (p.largeur == conf.largeur
+                                and p.hauteur == conf.hauteur
+                                and p.maximum == conf.maximum)
+                elif p.maximum >= conf.maximum:
                     if p.largeur == conf.largeur:
                         if p.hauteur == conf.hauteur:
                             éligible = True
@@ -327,6 +334,10 @@ class Chercheur:
         self.nom_fichier = nom_fichier
         self.codec = Codec()
 
+        self.nuls = 0
+        self.consommés = 0
+        self.produits = 0
+
     def trouver(self):
         base = self.conf.base()
         trace = False
@@ -352,9 +363,18 @@ class Chercheur:
             écrivain = Écrivain(
                 os.path.join(self.conf.chemin, self.nom_fichier))
 
+            # Statistiques
+            self.consommés = 0
+            self.nuls = 0
+
             # Génération
             for code in lecteur:
+                self.consommés += 1
                 nouveaux = self.prochains(code)
+
+                if len(nouveaux) == 0:
+                    # logging.warning(f"Le code {code} est nullipare")
+                    self.nuls += 1
                 for neuf in nouveaux:
                     if (self.progrès.palier != base.nb_cases() - 1
                             or self.valider(neuf)):
@@ -362,8 +382,12 @@ class Chercheur:
 
             # Itération
             self.progrès.palier += 1
-            logging.info(f"Palier n°{self.progrès.palier} atteint : "
-                         f"{écrivain.nb_codes} grilles")
+            logging.info(
+                f"Palier n°{self.progrès.palier} atteint : "
+                f"{écrivain.nb_codes} grilles "
+                f"(×{écrivain.nb_codes/self.consommés:.2f}) "
+                f"et {self.nuls/self.consommés:.2%} nuls "
+                f"→ ×{écrivain.nb_codes/(self.consommés-self.nuls):.2f}")
             écrivain.clore()
 
             # Génération d'un seul palier demandée
