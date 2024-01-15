@@ -6,7 +6,7 @@ import dataclasses
 
 
 @dataclasses.dataclass
-class Base:
+class BaseLinéaire:
     """Caractéristiques principales d'une Grille
     """
 
@@ -31,6 +31,94 @@ class Base:
         """Objet dual dont hauteur et largeur ont été inversées
         """
         self.hauteur, self.largeur = self.largeur, self.hauteur
+
+
+def triangle(n):
+    return (n * (n + 1)) // 2
+
+
+class BaseDiagonale:
+    """Caractéristiques principales d'une Grille
+
+    Cette fois, les cases sont décrites en diagonales de plus en plus éloignées
+    du point origine.
+    """
+
+    def __init__(self, largeur=4, hauteur=5, maximum=5):
+        self.largeur = largeur
+        self.hauteur = hauteur
+        self.maximum = maximum
+
+        # Préparation du cache pour `en_position`
+        self.cache = list()
+        self._cache_en_position()
+
+    def __eq__(self, autre):
+        return (self.largeur == autre.largeur and self.hauteur == autre.hauteur
+                and self.maximum == autre.maximum)
+
+    def en_index(self, *, hauteur, largeur):
+        """(hauteur, largeur) → index
+
+        >>> BD = BaseDiagonale(largeur=4, hauteur=5)
+        >>> BD.en_index(hauteur=0, largeur=0)
+        0
+        >>> BD.en_index(hauteur=0, largeur=1)
+        1
+        >>> BD.en_index(hauteur=0, largeur=2)
+        3
+        >>> BD.en_index(hauteur=0, largeur=3)
+        6
+        >>> BD.en_index(hauteur=1, largeur=3)
+        10
+        >>> BD.en_index(hauteur=2, largeur=3)
+        14
+        >>> BD.en_index(hauteur=3, largeur=3)
+        17
+        >>> BD.en_index(hauteur=4, largeur=3)
+        19
+        """
+        # 0 1 2 3
+        # 1 2 3 L
+        # 2 3 L H
+        # 3 L H 6
+        # L H 6 7
+
+        diag = hauteur + largeur
+        retour = hauteur + triangle(diag)
+        if diag >= self.largeur:
+            retour -= triangle(1 + (diag - self.largeur))
+        if diag >= self.hauteur:
+            retour -= triangle(diag - self.hauteur)
+        return retour
+
+    def _cache_en_position(self):
+        """Calcule une mémoire cache pour `en_position`
+        """
+        self.cache.clear()
+        for d in range(self.hauteur + self.largeur - 1):
+            garde = min(self.hauteur, d + 1)
+            for h in range(garde):
+                l = d - h
+                if l < self.largeur:
+                    self.cache.append((h, l))
+
+    def en_position(self, index):
+        """index → (hauteur, largeur)
+        """
+        return self.cache[index]
+
+    def nb_cases(self):
+        return self.hauteur * self.largeur
+
+    def transposer(self):
+        """Objet dual dont hauteur et largeur ont été inversées
+        """
+        self.hauteur, self.largeur = self.largeur, self.hauteur
+        self._cache_en_position()
+
+
+Base = BaseLinéaire
 
 
 @dataclasses.dataclass
