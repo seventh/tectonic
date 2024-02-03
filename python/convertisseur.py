@@ -2,33 +2,22 @@
 # -*- coding: utf-8 -*-
 """Convertit une sauvegarde d'un format à un autre.
 
-Par défaut, réalise la conversion du formats n°1 au format n°2.
-
-Rappel des formats :
-1) fichier1 + serial1
-2) fichier1 + serial2
-3) fichier2 + serial3
+Par défaut, réalise la conversion du format n°0 au format n°1.
 """
 
 import getopt
 import logging
 import sys
 
-from tectonic import fichier1
-from tectonic import fichier2
-from tectonic import serial2
-from tectonic import serial3
+from tectonic import fichier_000
+from tectonic import fichier_001
 
 
 class Convertisseur:
 
-    FORMATS = {
-        1: (fichier1, serial2),
-        2: (fichier1, serial2),
-        3: (fichier2, serial3),
-    }
+    FORMATS = [fichier_000, fichier_001]
 
-    def __init__(self, nid=1, but=2, chemins=list(), suffixe=".out"):
+    def __init__(self, nid=0, but=1, chemins=list(), suffixe=".out"):
         self.nid = nid
         self.but = but
         self.chemins = chemins
@@ -47,7 +36,7 @@ class Convertisseur:
                     continue
                 else:
                     val = int(val)
-                    if not (1 <= val <= 3):
+                    if not (0 <= val < len(Convertisseur.FORMATS)):
                         logging.warning(f"Option «{opt} {val}» ignorée")
                         continue
                     elif opt == "-b":
@@ -56,36 +45,18 @@ class Convertisseur:
                         retour.nid = val
         retour.chemins[:] = args
 
-        retour.lecteur = Convertisseur.FORMATS[retour.nid][0].Lecteur
-        retour.décodeur = Convertisseur.FORMATS[retour.nid][1].Codec
-        retour.écrivain = Convertisseur.FORMATS[retour.but][0].Écrivain
-        retour.encodeur = Convertisseur.FORMATS[retour.but][1].Codec
+        retour.lecteur = Convertisseur.FORMATS[retour.nid].Lecteur
+        retour.écrivain = Convertisseur.FORMATS[retour.but].Écrivain
 
         return retour
 
     def convertir(self, chemin):
-        configuré = False
         lecteur = self.lecteur(chemin)
-        écrivain = self.écrivain(chemin + self.suffixe)
-        for ancien in lecteur:
-            if not configuré:
-                if hasattr(lecteur, "base"):
-                    décodeur = self.décodeur(lecteur.base)
-                    écrivain.configurer(lecteur.base)
-                    encodeur = self.encodeur(lecteur.base)
-                    configuré = True
-                else:
-                    décodeur = self.décodeur()
+        écrivain = self.écrivain(chemin + self.suffixe, lecteur.base)
 
-            grille = décodeur.décoder(ancien)
-
-            if not configuré:
-                écrivain.configurer(grille.base)
-                encodeur = self.encodeur(grille.base)
-                configuré = True
-
-            nouveau = encodeur.encoder(grille)
-            écrivain.ajouter(nouveau)
+        for code in lecteur:
+            écrivain.ajouter(code)
+        écrivain.clore()
 
     def lancer(self):
         for chemin in self.chemins:

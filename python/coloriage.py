@@ -8,12 +8,10 @@
 """
 
 import enum
-import getopt
 import logging
-import sys
 
-from tectonic.fichier1 import Lecteur
-from tectonic.serial2 import Codec
+from commun import Configuration
+from tectonic.serial import Codec
 
 
 class Terrain(enum.IntEnum):
@@ -24,18 +22,6 @@ class Terrain(enum.IntEnum):
     roche = enum.auto()
     sable = enum.auto()
     terre = enum.auto()
-
-
-def charger_configuration():
-    lots = list()
-
-    opts, args = getopt.getopt(sys.argv[1:], "f:")
-    for opt, val in opts:
-        if opt == "-f":
-            lots.append(val)
-    codes = [int(c) for c in args]
-
-    return codes, lots
 
 
 def est_4_coloriable(grille):
@@ -98,22 +84,12 @@ def est_4_coloriable(grille):
     return i == len(voisinage)
 
 
-def statuer(codes, lots):
-    codec = Codec()
-
+def statuer(lots):
     affichage = False
-    for code in codes:
-        grille = codec.décoder(code)
-        if not est_4_coloriable(grille):
-            logging.debug(grille)
-            if affichage:
-                print("")
-            print(code)
-            affichage = True
 
     for lot in lots:
-        lecteur = Lecteur(lot)
-        for code in lecteur:
+        codec = Codec(lot.base)
+        for code in lot:
             grille = codec.décoder(code)
             if not est_4_coloriable(grille):
                 logging.debug(grille)
@@ -126,6 +102,5 @@ def statuer(codes, lots):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
-    CODES, LOTS = charger_configuration()
-
-    statuer(CODES, LOTS)
+    CONF = Configuration.charger()
+    statuer(CONF.lots)

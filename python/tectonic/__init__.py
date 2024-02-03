@@ -3,6 +3,7 @@
 """
 
 import dataclasses
+import re
 
 
 @dataclasses.dataclass
@@ -119,6 +120,50 @@ class BaseDiagonale:
 
 
 Base = BaseLinéaire
+
+
+class Progrès:
+    """Progrès de recherche : base & palier atteints
+    """
+
+    def __init__(self, hauteur, largeur, maximum, palier=None):
+        self.hauteur = hauteur
+        self.largeur = largeur
+        self.maximum = maximum
+        if palier is None:
+            self.palier = self.hauteur * self.largeur
+        else:
+            self.palier = palier
+
+    def __str__(self):
+        retour = (f"h{self.hauteur:0>2}"
+                  f"l{self.largeur:0>2}"
+                  f"m{self.maximum:0>2}")
+        if self.palier != self.hauteur * self.largeur:
+            retour += f"-p{self.palier:0>2}"
+        return retour
+
+    def __repr__(self):
+        return (f"{self.__class__.__name__}[0x{id(self):x}]"
+                f"(hauteur={self.hauteur},"
+                f"largeur={self.largeur},"
+                f"maximum={self.maximum},"
+                f"palier={self.palier})")
+
+    _REGEX = re.compile("h(\\d+)l(\\d+)m(\\d+)(?:-p(\\d+))?")
+
+    @staticmethod
+    def depuis_chaîne(chaîne):
+        retour = None
+        m = Progrès._REGEX.search(chaîne)
+        if m:
+            retour = Progrès(*(int(x) for x in m.groups() if x is not None))
+        return retour
+
+    def base(self):
+        return Base(hauteur=self.hauteur,
+                    largeur=self.largeur,
+                    maximum=self.maximum)
 
 
 @dataclasses.dataclass
@@ -359,3 +404,32 @@ class Grille:
 
         self.base.transposer()
         self.cases[:] = cases
+
+
+class Lecteur:
+    """Itérateur de codes généralement issus de l'entrée standard
+    """
+
+    def __init__(self, base, codes):
+        self.chemin = None
+
+        self.base = base
+        self.codes = codes
+
+        self._i = 0
+
+    @property
+    def nb_codes(self):
+        return len(self.codes)
+
+    def __iter__(self):
+        self._i = 0
+        return self
+
+    def __next__(self):
+        if self._i == len(self.codes):
+            raise StopIteration
+        else:
+            retour = self.codes[self._i]
+            self._i += 1
+            return retour

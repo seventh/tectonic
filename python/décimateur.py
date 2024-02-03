@@ -1,29 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys
-import getopt
+import logging
 
-from tectonic.fichier1 import Lecteur
-from tectonic.fichier1 import Écrivain
-from tectonic.serial2 import Codec
-
-
-class Configuration:
-    def __init__(self):
-        self.codes = list()
-        self.lots = list()
-
-    @staticmethod
-    def charger():
-        retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "f:")
-        for opt, val in opts:
-            if opt == "-f":
-                retour.lots.append(val)
-        retour.codes[:] = [int(x) for x in args]
-
-        return retour
+from commun import Configuration
+from tectonic.fichier import Écrivain
+from tectonic.serial import Codec
 
 
 def identifier_sorties(nom):
@@ -37,13 +19,13 @@ def identifier_sorties(nom):
     return (sortie_ok, sortie_ko)
 
 
-def filtrer(nom, itérateur):
-    nom_ok, nom_ko = identifier_sorties(nom)
-    sortie_ok = Écrivain(nom_ok)
-    sortie_ko = Écrivain(nom_ko)
+def filtrer(lot):
+    nom_ok, nom_ko = identifier_sorties(lot.chemin)
+    sortie_ok = Écrivain(nom_ok, lot.base)
+    sortie_ko = Écrivain(nom_ko, lot.base)
 
-    codec = Codec()
-    for code in itérateur:
+    codec = Codec(lot.base)
+    for code in lot:
         grille = codec.décoder(code)
         if grille.est_canonique():
             sortie_ok.ajouter(code)
@@ -55,11 +37,8 @@ def filtrer(nom, itérateur):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     CONF = Configuration.charger()
 
-    if len(CONF.codes) > 0:
-        filtrer(None, CONF.codes)
-
     for LOT in CONF.lots:
-        LECTEUR = Lecteur(LOT)
-        filtrer(LOT, LECTEUR)
+        filtrer(LOT)

@@ -3,34 +3,28 @@
 """Vérifie si un code identifie une grille en forme normale
 """
 
-import getopt
 import logging
-import sys
 
-from tectonic.fichier1 import Lecteur
-from tectonic.serial2 import Codec
+from commun import Configuration
+from tectonic.serial import Codec
 
 
-class Configuration:
-    def __init__(self):
-        self.codes = list()
-        self.lots = list()
+class Traitement:
 
-        self.codec = Codec()
+    def __init__(self, conf):
+        self.lots = conf.lots
+        self.saut_requis = False
 
     def afficher(self):
-        for code in self.codes:
-            self.tester(code)
-
         for lot in self.lots:
-            lecteur = Lecteur(lot)
-            for code in lecteur:
-                self.tester(code)
+            codec = Codec(lot.base)
+            for code in lot:
+                self.tester(code, codec)
 
-    def tester(self, code):
-        grille = self.codec.décoder(code)
+    def tester(self, code, codec):
+        grille = codec.décoder(code)
         grille.normaliser()
-        nouveau = self.codec.encoder(grille)
+        nouveau = codec.encoder(grille)
         if nouveau != code:
             self.afficher_code(code)
 
@@ -41,19 +35,8 @@ class Configuration:
         self.saut_requis = True
 
 
-def charger_configuration():
-    retour = Configuration()
-
-    opts, args = getopt.getopt(sys.argv[1:], "f:")
-    for opt, val in opts:
-        if opt == "-f":
-            retour.lots.append(val)
-    retour.codes[:] = [int(c) for c in args]
-
-    return retour
-
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
-    CONF = charger_configuration()
-    CONF.afficher()
+    CONF = Configuration.charger()
+    T = Traitement(CONF)
+    T.afficher()

@@ -1,41 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys
-import getopt
+import logging
 
-from tectonic.fichier1 import Lecteur
-from tectonic.serial2 import Codec
-
-
-class Configuration:
-    def __init__(self):
-        self.codes = list()
-        self.lots = list()
-
-    @staticmethod
-    def charger():
-        retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "f:")
-        for opt, val in opts:
-            if opt == "-f":
-                retour.lots.append(val)
-        retour.codes[:] = [int(x) for x in args]
-
-        return retour
+from commun import Configuration
+from tectonic.serial import Codec
 
 
 def déterminer_nb_régions(conf):
     nb_régions = dict()
-    codec = Codec()
-    for code in conf.codes:
-        grille = codec.décoder(code)
-        n = grille.nb_régions()
-        nb_régions[n] = nb_régions.get(n, 0) + 1
 
     for lot in conf.lots:
-        lecteur = Lecteur(lot)
-        for code in lecteur:
+        codec = Codec(lot.base)
+        for code in lot:
             grille = codec.décoder(code)
             n = grille.nb_régions()
             nb_régions[n] = nb_régions.get(n, 0) + 1
@@ -45,5 +22,6 @@ def déterminer_nb_régions(conf):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     CONF = Configuration.charger()
     déterminer_nb_régions(CONF)

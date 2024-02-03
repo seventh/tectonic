@@ -10,15 +10,14 @@ https://sudoku.megastar.fr/accueil/techniques-de-tectonic/
 
 import collections
 import logging
-import getopt
 import random
-import sys
 
-from tectonic.serial2 import Codec
-from tectonic.fichier1 import Lecteur
+from commun import Configuration
+from tectonic.serial import Codec
 
 
 class CaseNavigable:
+
     def __init__(self, position, valeur, région):
         self.position = position
         self.région = région
@@ -46,6 +45,7 @@ class CaseNavigable:
 class RégionNavigable:
     """Ensemble des cases d'un bloc
     """
+
     def __init__(self):
         self.cases = list()
 
@@ -64,6 +64,7 @@ class RégionNavigable:
 
 
 class GrilleNavigable:
+
     def __init__(self, grille):
         self.base = grille.base
         self.régions = collections.defaultdict(RégionNavigable)
@@ -115,29 +116,17 @@ class GrilleNavigable:
 
 
 class Traitement:
-    def __init__(self):
-        self.codec = Codec()
-        self.lots = list()
 
-    @staticmethod
-    def charger():
-        retour = Traitement()
-
-        lecteurs = list()
-        opts, args = getopt.getopt(sys.argv[1:], "f:")
-        for opt, val in opts:
-            if opt == "-f":
-                lecteurs.append(Lecteur(val))
-        codes = [int(c) for c in args]
-
-        retour.lots = [codes, *lecteurs]
-
-        return retour
+    def __init__(self, conf):
+        self.lots = conf.lots
+        self.codec = None
 
     def effectuer(self):
         for lot in self.lots:
+            self.codec = Codec(lot.base)
             for code in lot:
                 self.gérer_grille(code)
+            self.codec = None
 
     def gérer_grille(self, code):
         grille = self.codec.décoder(code)
@@ -194,5 +183,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     random.seed(1977)
 
-    T = Traitement.charger()
+    CONF = Configuration.charger()
+    T = Traitement(CONF)
     T.effectuer()

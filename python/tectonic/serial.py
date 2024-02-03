@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Encodage complet (grille + base)
+"""Encodage compact (sans base)
 """
 
-from . import Base, Grille
+import copy
+
+from . import Grille
 
 
 class Codec:
@@ -14,31 +16,24 @@ class Codec:
     identifiants de région sont décalés d'une unité.
     """
 
-    FORMAT = 2
-
-    def __init__(self, base=None):
-        # L'argument 'base' est proposé par compatibilité
+    def __init__(self, base):
+        """Les informations portées par la Base ne sont pas codées
+        """
+        self.base = base
         self.pad_dimension = 256
+        self.pad_valeur = 1 + base.maximum
 
     def décoder(self, code):
         """Grille de code correspondant
         """
         # - Décodage des caractéristiques du format
-        code, hauteur = divmod(code, self.pad_dimension)
-        code, largeur = divmod(code, self.pad_dimension)
-        code, maximum = divmod(code, self.pad_dimension)
-        code, nb_régions = divmod(code, self.pad_dimension)
-
-        pad_valeur = maximum + 1
-        pad_région = nb_régions + 1
-
-        base = Base(largeur, hauteur, maximum)
-        retour = Grille(base)
+        code, pad_région = divmod(code, self.pad_dimension)
 
         # - Décodage de la grille elle-même
+        retour = Grille(copy.deepcopy(self.base))
         for case in retour.cases:
             # -- Décodage de la valeur
-            code, valeur = divmod(code, pad_valeur)
+            code, valeur = divmod(code, self.pad_valeur)
             if valeur > 0:
                 case.valeur = valeur
 
@@ -47,16 +42,11 @@ class Codec:
             if région > 0:
                 case.région = région - 1
 
-            # -- Optimisation : interruption prématurée
-            if code == 0:
-                break
-
         return retour
 
     def encoder(self, grille):
         """Code associé à la Grille fournie
         """
-        pad_valeur = 1 + grille.base.maximum
         pad_région = 1 + grille.nb_régions()
 
         # - Encodage de la grille elle-même
@@ -65,21 +55,15 @@ class Codec:
             # -- Encodage de la région
             retour *= pad_région
             if c.région >= 0:
-                retour += c.région + 1
+                retour += 1 + c.région
 
             # -- Encodage de la valeur
-            retour *= pad_valeur
+            retour *= self.pad_valeur
             if c.valeur >= 1:
                 retour += c.valeur
 
-        # - Encodage de caractéristiques du format
+        # - Encodage des caractéristiques du format
         retour *= self.pad_dimension
-        retour += grille.nb_régions()
-        retour *= self.pad_dimension
-        retour += grille.base.maximum
-        retour *= self.pad_dimension
-        retour += grille.base.largeur
-        retour *= self.pad_dimension
-        retour += grille.base.hauteur
+        retour += pad_région
 
         return retour

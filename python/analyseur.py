@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import sys
+import logging
 
-from tectonic.serial2 import Codec
+from commun import Configuration
+from tectonic.serial import Codec
 
 
-def remonter(code):
-    codec = Codec()
-
+def remonter(codec, code):
     grille = codec.décoder(code)
     for i, case in enumerate(grille.cases):
         if case.valeur < 1:
@@ -26,4 +25,9 @@ def remonter(code):
 
 
 if __name__ == "__main__":
-    remonter(int(sys.argv[1]))
+    logging.basicConfig(level=logging.DEBUG)
+    CONF = Configuration.charger()
+    for LOT in CONF.lots:
+        CODEC = Codec(LOT.base)
+        for CODE in LOT:
+            remonter(CODEC, CODE)

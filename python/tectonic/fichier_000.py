@@ -1,17 +1,42 @@
 # -*- coding: utf-8 -*-
 """Format de fichier en texte clair
 
-1 entier par ligne, au format `serial2`.
-Le fichier est éventuellement terminé par la valeur "-1"
+Définition de l'en-tête (10 octets):
+
+  +---+---------------------------------------+
+  | s | "TECTONIC"                            |
+  | B | numéro de version : '\x00'            |
+  | B | saut de ligne                         |
+  +---+---------------------------------------+
+
+Puis, en clair :
+
+  Base.hauteur
+  Base.largeur
+  Base.maximum
+  nombre total de codes
+
+Puis :
+
+  1 entier par ligne (×nombre fois)
+
+Définition du marqueur de fin (1 octet):
+
+  +---+---------------------------------------+
+  | B | marqueur de fin : '\b10000000'        |
+  +---+---------------------------------------+
 """
 
 import logging
 import os
+import os.path
+
+from . import Progrès
 
 
 class Écrivain:
 
-    def __init__(self, chemin):
+    def __init__(self, chemin, base):
         self.sortie = open(chemin, "wt")
         self._nb_codes = 0
 
@@ -42,6 +67,9 @@ class Lecteur:
         self.chemin = chemin
         self.entrée = open(chemin, "rt")
 
+        progrès = Progrès.depuis_chaîne(os.path.basename(chemin))
+        self._base = progrès.base()
+
         # Détermination du nombre total d'enregistrements disponibles
         self._nb_codes = 0
         ligne = None
@@ -56,6 +84,12 @@ class Lecteur:
 
         # Numéro de la prochaine ligne à lire
         self.id_ligne = 0
+
+    @property
+    def base(self):
+        """Base commune à tous les codes
+        """
+        return self._base
 
     def __iter__(self):
         self.entrée.seek(0, 0)
