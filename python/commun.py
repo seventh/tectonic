@@ -6,14 +6,25 @@ import sys
 
 from tectonic import Base
 from tectonic import Lecteur
-from tectonic.fichier_001 import Lecteur as LecteurBinaire
+from tectonic.fichier import lecteur
 
 
 class Configuration:
+    """Socle commun de configuration des différents scripts :
+
+    -f nom_fichier
+    -g              active le mode DEBUG
+    -o suffixe      précise le suffixe à employer pour les sorties
+    -h N
+    -l N
+    -m N            ces trois options utilisées conjointements précisent
+                    la base employée
+    """
 
     def __init__(self):
         self.lots = list()
         self.debug = False
+        self.suffixe = ".out"
 
     @staticmethod
     def charger():
@@ -23,12 +34,14 @@ class Configuration:
         hauteur = None
         largeur = None
         maximum = None
-        opts, args = getopt.getopt(sys.argv[1:], "f:gh:l:m:")
+        opts, args = getopt.getopt(sys.argv[1:], "f:gh:l:m:o:")
         for opt, val in opts:
             if opt == "-f":
-                retour.lots.append(LecteurBinaire(val))
+                retour.lots.append(lecteur(val))
             elif opt == "-g":
                 retour.debug = True
+            elif opt == "-o":
+                retour.suffixe = val
             elif not val.isdecimal():
                 logging.warning(f"Option {opt}{val} incorrecte")
             else:

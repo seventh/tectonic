@@ -4,7 +4,7 @@
 import logging
 
 from commun import Configuration
-from tectonic.fichier import Écrivain
+from tectonic.fichier import écrivain
 from tectonic.serial import Codec
 
 
@@ -21,8 +21,8 @@ def identifier_sorties(nom):
 
 def filtrer(lot):
     nom_ok, nom_ko = identifier_sorties(lot.chemin)
-    sortie_ok = Écrivain(nom_ok, lot.base)
-    sortie_ko = Écrivain(nom_ko, lot.base)
+    sortie_ok = écrivain(nom_ok, lot.base)
+    sortie_ko = écrivain(nom_ko, lot.base)
 
     codec = Codec(lot.base)
     for code in lot:

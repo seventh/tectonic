@@ -14,8 +14,8 @@ from tectonic import Base
 from tectonic import Case
 from tectonic import Grille
 from tectonic import Progrès
-from tectonic.fichier_001 import Lecteur
-from tectonic.fichier_001 import Écrivain
+from tectonic.fichier import lecteur as get_lecteur
+from tectonic.fichier import écrivain as get_écrivain
 from tectonic.serial import Codec
 
 
@@ -131,7 +131,7 @@ def convertir(conf, progrès, nom_fichier):
     logging.info(f"Conversion depuis «{nom_fichier}»")
 
     # Configuration de la lecture
-    lecteur = Lecteur(os.path.join(conf.chemin, nom_fichier))
+    lecteur = get_lecteur(os.path.join(conf.chemin, nom_fichier))
     décodeur = Codec(progrès.base())
 
     filtrage_case_par_case = (progrès.maximum != conf.maximum)
@@ -150,7 +150,8 @@ def convertir(conf, progrès, nom_fichier):
                       palier=progrès.palier)
     encodeur = Codec(progrès.base())
     nom_fichier = str(progrès) + ".log"
-    écrivain = Écrivain(os.path.join(conf.chemin, nom_fichier), progrès.base())
+    écrivain = get_écrivain(os.path.join(conf.chemin, nom_fichier),
+                            progrès.base())
 
     # Conversion à la volée des codes
     for code in lecteur:
@@ -309,7 +310,7 @@ class Chercheur:
                     trace = True
                 lecteur = GénérateurPremierPalier(base)
             else:
-                lecteur = Lecteur(
+                lecteur = get_lecteur(
                     os.path.join(self.conf.chemin, self.nom_fichier))
                 if not trace:
                     logging.info(f"Reprise depuis «{self.nom_fichier}» : "
@@ -320,7 +321,7 @@ class Chercheur:
             self.progrès.palier += 1
             self.nom_fichier = str(self.progrès) + ".log"
             self.progrès.palier -= 1
-            écrivain = Écrivain(
+            écrivain = get_écrivain(
                 os.path.join(self.conf.chemin, self.nom_fichier),
                 self.progrès.base())
 
