@@ -7,12 +7,12 @@ Ligne par ligne, colonne par colonne, une case à la fois (palier).
 === Exploitation des résultats intermédiaires
 
 Un résultat notable est qu'avec la sauvegarde des paliers intermédiaires,
-le palier L×(H-1)×M du problème (L, H, M) est le mếme que pour tous les
+le palier 1+L×(H-1)×M du problème (L, H, M) est le mếme que pour tous les
 problèmes (L, H+n, M) quelque soit n >= 0.
 
 === Limitation du contexte
 
-La génération d'une nouvelle ligne n'est sensible qu'aux (H-1) lignes
+La génération d'une nouvelle ligne n'est sensible qu'aux (M-1) lignes
 précédentes. On peut même envisager une limitation plus drastique encore
 en considérant la frontière constituée de polyominos pleins.
 
@@ -126,7 +126,7 @@ autre version de la grille existe déjà avec ces régions ne formant qu'un.
 === Parallélisation
 
 Le foisonnement d'un palier à l'autre n'est pas constant. Les premiers paliers
-multiplient le nombre de grilles par environ  `maximum`. Puis, en fonction des
+multiplient le nombre de grilles par environ  M. Puis, en fonction des
 dimensions de la grille, les contraintes de placement viennent limiter ce
 foisonnement. Le dernier palier vient résoudre toutes les contraintes et
 présente généralement un foisonnement inférieur à l'unité.
@@ -178,6 +178,25 @@ Je reçois le résultat de la génération, et ce résultat est bien le suivant 
 Si pour un palier donné, trop de lots sont en attente, plus aucun lot n'est
 émis pour aucun palier, histoire de favoriser la resynchronisation, et éviter
 de perdre des résultats intermédiaires.
+
+==== Parallélisation sans perte
+
+Qu'appelle-t-on une perte ? Le fait de ne pas avoir les grilles du palier
+suivant qui sont issues de l'expansion de grilles du palier courant.
+
+1. Le client demande un lot. Le serveur mémorise dans un fichier F
+l'attribution du lot, par l'ajout d'une ligne caractéristique.
+2. Le client (finit par) renvoyer les grilles correspondantes à l'étude du lot
+fourni.
+3. Le serveur enregistre les réponses fournies dans un fichier dédié.
+4. Le serveur ajoute une ligne dans le fichier F indiquant que le lot est
+traité.
+
+Tant que l'étape n°4 n'est pas finalisée, le lot de l'étape n°1 n'est pas
+traîté.
+
+Les fichiers de l'étape n°3 considérés valides sont ceux qui ont identifiés
+par les actions de l'étape n°4.
 
 == Stockage
 
