@@ -186,8 +186,11 @@ class Région:
     """Ensemble de valeurs connexes et nombre de bords libres
     """
 
+    # Valeurs des cases de la région
     valeurs: set = dataclasses.field(default_factory=set)
+    # Identifiants des régions voisines
     voisins: set = dataclasses.field(default_factory=set)
+    # Nombre de cases limitrophes libres
     bordure: int = 0
 
     def __eq__(self, autre):
@@ -205,27 +208,32 @@ class Région:
 
     def est_incomplète(self):
         """Vrai ssi les valeurs ne forment pas un intervalle continu
-        débutant à 1
+        débutant à 1. Toutes les valeurs autorisées n'ont pas à être
+        représentées (dans une grille autorisant le 5, une région avec les
+        quatre valeurs 1, 2, 3, 4 sera considérée complète)
         """
-        retour = False
-        n = 0
-        minimum = None
-        maximum = None
-        for v in self.valeurs:
-            n += 1
-            if n == 1:
-                minimum = v
-                maximum = v
-            elif v < minimum:
-                minimum = v
-            elif v > maximum:
-                maximum = v
-        if minimum != 1 or n != maximum - minimum + 1:
-            retour = True
-        return retour
+        n = len(self.valeurs)
+        if n == 0:
+            return True
+
+        minimum = min(self.valeurs)
+        if minimum != 1:
+            return True
+
+        maximum = max(self.valeurs)
+        if n != maximum - minimum + 1:
+            return True
+
+        return False
 
 
-class Scholdu:
+class Analyseur:
+    """Analyse d'une grille
+
+    Cette analyse consiste à identifier, région par région, les valeurs dont
+    elles sont constituées, ainsi que les identifiants des régions connexes,
+    et le nombre de cases limitrophes libres.
+    """
 
     def __init__(self, grille):
         self.g = grille
@@ -234,6 +242,8 @@ class Scholdu:
         self._calculer()
 
     def _calculer(self):
+        bords = dict()
+
         for i, case in enumerate(self.g.cases):
             r1 = case.région
             if r1 >= 0:
@@ -247,12 +257,15 @@ class Scholdu:
                         j = self.g.base.en_index(hauteur=h2, largeur=l2)
                         r2 = self.g.cases[j].région
                         if r2 < 0:
-                            self.régions.setdefault(r1, Région()).bordure += 1
+                            bords.setdefault(r1, set()).add(j)
                         elif r2 != r1:
                             self.régions.setdefault(r1,
                                                     Région()).voisins.add(r2)
                             self.régions.setdefault(r2,
                                                     Région()).voisins.add(r1)
+
+        for r, cases in bords.items():
+            self.régions[r].bordure = len(cases)
 
     def région_max(self):
         return max(self.régions, default=-1)
@@ -280,8 +293,8 @@ class GénérateurPremierPalier:
 
 def valider(grille):
     retour = True
-    scholdu = Scholdu(grille)
-    for r in scholdu.régions.values():
+    analyseur = Analyseur(grille)
+    for r in analyseur.régions.values():
         if r.est_anormal():
             retour = False
     return retour
@@ -364,22 +377,19 @@ class Chercheur:
         grille = self.codec.décoder(code)
         i = self.progrès.palier
         h, l = grille.base.en_position(i)
-        scholdu = Scholdu(grille)
+        analyseur = Analyseur(grille)
 
         # Régions à compléter
-        nb_régions = 0
         régions = set()
         # → case du dessus
         if h > 0:
-            nb_régions += 1
             régions.add(grille[(h - 1, l)].région)
         # → case de gauche
         if l > 0:
-            nb_régions += 1
             régions.add(grille[(h, l - 1)].région)
         régions = sorted(régions)
 
-        # Calcul des valeurs possibles au minimum, selon la règle du voisinage
+        # Calcul des valeurs possibles au maximum, selon la règle du voisinage
         valeurs_possibles = set(range(1, grille.base.maximum + 1))
         if l > 0:
             valeurs_possibles.discard(grille[(h, l - 1)].valeur)
@@ -393,7 +403,8 @@ class Chercheur:
         # 1) On étend chacune des régions de toutes les façons possibles
         if len(régions) == 1:
             r = régions[0]
-            valeurs = valeurs_possibles.difference(scholdu.régions[r].valeurs)
+            valeurs = valeurs_possibles.difference(
+                analyseur.régions[r].valeurs)
             for v in valeurs:
                 grille.cases[i].région = r
                 grille.cases[i].valeur = v
@@ -402,10 +413,10 @@ class Chercheur:
             for r1, r2 in itertools.permutations(régions, 2):
                 # On vérifie qu'on ne rendrait pas «r2» incomplète de toute
                 # pièce
-                if not (scholdu.régions[r2].bordure == 1
-                        and scholdu.régions[r2].est_incomplète()):
+                if not (analyseur.régions[r2].bordure == 1
+                        and analyseur.régions[r2].est_incomplète()):
                     valeurs = valeurs_possibles.difference(
-                        scholdu.régions[r1].valeurs)
+                        analyseur.régions[r1].valeurs)
                     for v in valeurs:
                         grille.cases[i].région = r1
                         grille.cases[i].valeur = v
@@ -414,31 +425,25 @@ class Chercheur:
         # 2) On crée une toute nouvelle région, en veillant à ce qu'elle ne
         # puisse pas être incomplète
         génération_autorisée = True
-        if len(régions) == 1:
-            r = régions[0]
-            if (scholdu.régions[r].bordure == nb_régions
-                    and scholdu.régions[r].est_incomplète()):
+        for r in régions:
+            if (analyseur.régions[r].bordure == 1
+                    and analyseur.régions[r].est_incomplète()):
                 génération_autorisée = False
-        elif len(régions) == 2:
-            for r in régions:
-                if (scholdu.régions[r].bordure == 1
-                        and scholdu.régions[r].est_incomplète()):
-                    génération_autorisée = False
 
         if génération_autorisée:
             for v in valeurs_possibles:
-                grille.cases[i].région = scholdu.région_max() + 1
+                grille.cases[i].région = analyseur.région_max() + 1
                 grille.cases[i].valeur = v
                 retour.append(self.codec.encoder(grille))
 
         # 3) On fusionne les régions voisines
         for r1, r2 in itertools.combinations(régions, 2):
-            if (r2 not in scholdu.régions[r1].voisins
-                    and scholdu.régions[r1].valeurs.isdisjoint(
-                        scholdu.régions[r2].valeurs)):
+            if (r2 not in analyseur.régions[r1].voisins
+                    and analyseur.régions[r1].valeurs.isdisjoint(
+                        analyseur.régions[r2].valeurs)):
                 valeurs = valeurs_possibles.difference(
-                    scholdu.régions[r1].valeurs)
-                valeurs.difference_update(scholdu.régions[r2].valeurs)
+                    analyseur.régions[r1].valeurs)
+                valeurs.difference_update(analyseur.régions[r2].valeurs)
                 if len(valeurs) > 0:
                     for case in grille.cases:
                         if case.région == r2:
@@ -455,8 +460,8 @@ class Chercheur:
     def valider(self, code):
         retour = True
         grille = self.codec.décoder(code)
-        scholdu = Scholdu(grille)
-        for r in scholdu.régions.values():
+        analyseur = Analyseur(grille)
+        for r in analyseur.régions.values():
             if r.est_anormal():
                 retour = False
         return retour
