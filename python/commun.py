@@ -17,7 +17,7 @@ class Configuration:
     -o suffixe      précise le suffixe à employer pour les sorties
     -h N
     -l N
-    -m N            ces trois options utilisées conjointements précisent
+    -m N            ces trois options utilisées conjointement précisent
                     la base employée
     """
 

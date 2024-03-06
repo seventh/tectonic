@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Générateur de grille complète
+
+À la différence du générateur original, celui-ci adopte une approche en
+profondeur d'abord.
 """
 
 import dataclasses
@@ -26,20 +29,13 @@ class Configuration:
     largeur: int = 4
     maximum: int = 5
     chemin: str = "../data"
-    mono_palier: bool = False
-    palier_max: int = None
-    strict: bool = False
 
     @staticmethod
     def charger():
         retour = Configuration()
-        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:qs:", ["strict"])
+        opts, args = getopt.getopt(sys.argv[1:], "h:l:m:")
         for opt, val in opts:
-            if opt == "--strict":
-                retour.strict = True
-            elif opt == "-q":
-                retour.mono_palier = True
-            elif not val.isdecimal():
+            if not val.isdecimal():
                 logging.warning(f"Option «{opt} {val}» ignorée")
                 continue
             else:
@@ -50,14 +46,8 @@ class Configuration:
                     retour.largeur = val
                 elif opt == "-m" and val > 2:
                     retour.maximum = val
-                elif opt == "-s" and val > 0:
-                    retour.palier_max = val
         if len(args) != 0:
             retour.chemin = args[0]
-
-        if (retour.palier_max is None
-                or retour.palier_max > retour.hauteur * retour.largeur):
-            retour.palier_max = retour.hauteur * retour.largeur
 
         return retour
 
@@ -65,6 +55,20 @@ class Configuration:
         return Base(hauteur=self.hauteur,
                     largeur=self.largeur,
                     maximum=self.maximum)
+
+
+def charger_avancement(conf):
+    """Met en place un contexte propre pour reprendre la génération
+    """
+    # A priori, c'est simple : pour générer une grille (H, L, M), on
+    # a besoin de tous les paliers intermédiaires, jusqu'à rencontrer
+    # le palier le plus grand dont le fichier est complet. Le plus petit
+    # palier à considérer est celui fourni par 'identifier_meilleur_départ'
+
+    # Cela pose la question des paliers complets ou non. Un fichier sans
+    # marqueur de fin est par construction incomplet, c'est le sens même du
+    # marqueur
+    pass
 
 
 def identifier_meilleur_départ(conf):
@@ -291,84 +295,20 @@ class GénérateurPremierPalier:
             return self.code
 
 
-class Chercheur:
+class ProducteurProgrès:
 
-    def __init__(self, conf, progrès, nom_fichier):
-        self.conf = conf
-        self.progrès = progrès
-        self.nom_fichier = nom_fichier
+    def __init__(self, progrès):
+        self.palier = progrès.palier
         self.codec = Codec(progrès.base())
 
-        self.nuls = 0
-        self.consommés = 0
-        self.produits = 0
-
-    def trouver(self):
-        base = self.conf.base()
-        trace = False
-        while self.progrès.palier < self.conf.palier_max:
-            # Lecteur
-            if self.nom_fichier is None:
-                if not trace:
-                    logging.info("Initialisation du contexte")
-                    trace = True
-                lecteur = GénérateurPremierPalier(base)
-            else:
-                lecteur = get_lecteur(
-                    os.path.join(self.conf.chemin, self.nom_fichier))
-                if not trace:
-                    logging.info(f"Reprise depuis «{self.nom_fichier}» : "
-                                 f"{lecteur.nb_codes} grilles")
-                    trace = True
-
-            # Écrivain
-            self.progrès.palier += 1
-            self.nom_fichier = str(self.progrès) + ".log"
-            self.progrès.palier -= 1
-            écrivain = get_écrivain(
-                os.path.join(self.conf.chemin, self.nom_fichier),
-                self.progrès.base())
-
-            # Statistiques
-            self.consommés = 0
-            self.nuls = 0
-
-            # Génération
-            for code in lecteur:
-                self.consommés += 1
-                nouveaux = self.prochains(code)
-
-                if len(nouveaux) == 0:
-                    # logging.warning(f"Le code {code} est nullipare")
-                    self.nuls += 1
-                for neuf in nouveaux:
-                    if (self.progrès.palier != base.nb_cases() - 1
-                            or self.valider(neuf)):
-                        écrivain.ajouter(neuf)
-
-            # Itération
-            self.progrès.palier += 1
-            logging.info(
-                f"Palier n°{self.progrès.palier} atteint : "
-                f"{écrivain.nb_codes} grilles "
-                f"(×{écrivain.nb_codes/self.consommés:.2f}) "
-                f"et {self.nuls/self.consommés:.2%} nuls "
-                f"→ ×{écrivain.nb_codes/(self.consommés-self.nuls):.2f}")
-            écrivain.clore()
-
-            # Génération d'un seul palier demandée
-            if self.conf.mono_palier:
-                break
-
-    def prochains(self, code):
-        """Remplissage de la prochaine case
+    def itérer(self, code):
+        """Itérateur des grilles du palier suivant
         """
-        retour = list()
-
         grille = self.codec.décoder(code)
-        i = self.progrès.palier
-        h, l = grille.base.en_position(i)
         analyseur = Analyseur(grille)
+
+        i = self.palier
+        h, l = grille.base.en_position(i)
 
         # Régions à compléter
         régions = set()
@@ -399,7 +339,7 @@ class Chercheur:
             for v in valeurs:
                 grille.cases[i].région = r
                 grille.cases[i].valeur = v
-                retour.append(self.codec.encoder(grille))
+                yield self.codec.encoder(grille)
         else:
             for r1, r2 in itertools.permutations(régions, 2):
                 # On vérifie qu'on ne rendrait pas «r2» incomplète de toute
@@ -411,21 +351,19 @@ class Chercheur:
                     for v in valeurs:
                         grille.cases[i].région = r1
                         grille.cases[i].valeur = v
-                        retour.append(self.codec.encoder(grille))
+                        yield self.codec.encoder(grille)
 
         # 2) On crée une toute nouvelle région, en veillant à ce qu'elle ne
         # puisse pas être incomplète
-        génération_autorisée = True
         for r in régions:
             if (analyseur.régions[r].bordure == 1
                     and analyseur.régions[r].est_incomplète()):
-                génération_autorisée = False
-
-        if génération_autorisée:
+                break
+        else:
             for v in valeurs_possibles:
                 grille.cases[i].région = analyseur.région_max() + 1
                 grille.cases[i].valeur = v
-                retour.append(self.codec.encoder(grille))
+                yield self.codec.encoder(grille)
 
         # 3) On fusionne les régions voisines
         for r1, r2 in itertools.combinations(régions, 2):
@@ -443,19 +381,51 @@ class Chercheur:
                     grille.normaliser()
                     for v in valeurs:
                         grille.cases[i].valeur = v
-                        retour.append(self.codec.encoder(grille))
+                        yield self.codec.encoder(grille)
 
-        # Production des nouveaux états
-        return retour
 
-    def valider(self, code):
-        retour = True
-        grille = self.codec.décoder(code)
-        analyseur = Analyseur(grille)
-        for r in analyseur.régions.values():
-            if r.est_anormal():
-                retour = False
-        return retour
+class Chercheur:
+
+    def __init__(self, conf):
+        self.conf = conf
+
+    def trouver(self):
+        base = self.conf.base()
+
+        producteurs = list()
+        enregistreurs = list()
+        for palier in range(base.nb_cases() + 1):
+            progrès = Progrès(base.hauteur, base.largeur, base.maximum, palier)
+
+            if palier < base.nb_cases():
+                producteurs.append(ProducteurProgrès(progrès))
+
+            chemin = os.path.join(self.conf.chemin, str(progrès) + ".gle")
+            enregistreurs.append(get_écrivain(chemin, base))
+
+        itérateurs = [iter(GénérateurPremierPalier(base))]
+        while len(itérateurs) != 0:
+            k = len(itérateurs) - 1
+            it = itérateurs[-1]
+            try:
+                # Code appartenent au palier 'k'
+                code = next(it)
+                if k < len(producteurs):
+                    enregistreurs[k].ajouter(code)
+                    itérateurs.append(producteurs[k].itérer(code))
+                else:
+                    grille = producteurs[-1].codec.décoder(code)
+                    analyse = Analyseur(grille)
+                    for r in analyse.régions.values():
+                        if r.est_anormal():
+                            break
+                    else:
+                        enregistreurs[-1].ajouter(code)
+            except StopIteration:
+                itérateurs.pop()
+
+        for e in enregistreurs:
+            e.clore()
 
 
 if __name__ == "__main__":
@@ -464,14 +434,5 @@ if __name__ == "__main__":
     CONF = Configuration.charger()
     logging.info(CONF)
 
-    # Chargement du meilleur contexte
-    PROGRÈS, NOM_FICHIER = identifier_meilleur_départ(CONF)
-
-    # Conversion si nécessaire
-    if PROGRÈS.base() != CONF.base():
-        PROGRÈS, NOM_FICHIER = convertir(CONF, PROGRÈS, NOM_FICHIER)
-        assert PROGRÈS.base() == CONF.base()
-
-    # Itérations
-    CHERCHEUR = Chercheur(CONF, PROGRÈS, NOM_FICHIER)
+    CHERCHEUR = Chercheur(CONF)
     CHERCHEUR.trouver()
