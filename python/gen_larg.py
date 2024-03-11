@@ -215,7 +215,6 @@ class Chercheur:
             # Écrivain
             self.progrès.palier += 1
             self.nom_fichier = str(self.progrès) + ".log"
-            self.progrès.palier -= 1
             écrivain = get_écrivain(
                 os.path.join(self.conf.chemin, self.nom_fichier),
                 self.progrès.base())
@@ -239,7 +238,6 @@ class Chercheur:
                         écrivain.ajouter(neuf)
 
             # Itération
-            self.progrès.palier += 1
             logging.info(
                 f"Palier n°{self.progrès.palier} atteint : "
                 f"{écrivain.nb_codes} grilles "

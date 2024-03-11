@@ -55,6 +55,39 @@ class Configuration:
                     maximum=self.maximum)
 
 
+class Niveau:
+
+    def __init__(self, producteur):
+        self.producteur = producteur
+
+        self.générateur = None
+        self.index = -1
+        self.code = -1
+
+    def ajouter(self, code):
+        pass
+
+    def clore(self):
+        pass
+
+
+class NiveauÀEnregistreur(Niveau):
+
+    def __init__(self, producteur, enregistreur):
+        super().__init__(producteur)
+        self.enregistreur = enregistreur
+
+    def ajouter(self, code):
+        self.enregistreur.ajouter(code)
+
+    def clore(self):
+        self.enregistreur.clore()
+
+
+def construire_chemin(niveaux):
+    return ",".join([str(n.index) for n in niveaux])
+
+
 class Chercheur:
 
     def __init__(self, conf):
@@ -62,42 +95,61 @@ class Chercheur:
 
     def trouver(self):
         base = self.conf.base()
+        nb_cases = base.nb_cases()
 
-        producteurs = list()
-        enregistreurs = list()
-        for palier in range(base.nb_cases() + 1):
+        # Préparation des contexte de production/enregistrement
+        # Pour chaque palier :
+        #  - un producteur qui permet d'obtenir un itérateur à partir d'un code
+        # du palier précédent
+        #  - un enregistreur qui mémorise les codes de ce palier
+        niveaux = list()
+        for palier in range(nb_cases + 1):
             progrès = Progrès(base.hauteur, base.largeur, base.maximum, palier)
 
+            if palier == 0:
+                producteur = None
+            else:
+                producteur = ProducteurProgrès(progrès)
+
             if palier < base.nb_cases():
-                producteurs.append(ProducteurProgrès(progrès))
+                niveau = Niveau(producteur)
+            else:
+                chemin = os.path.join(self.conf.chemin, str(progrès) + ".log")
+                enregistreur = get_écrivain(chemin, base)
+                niveau = NiveauÀEnregistreur(producteur, enregistreur)
+            niveaux.append(niveau)
 
-            chemin = os.path.join(self.conf.chemin, str(progrès) + ".gle")
-            enregistreurs.append(get_écrivain(chemin, base))
-
-        itérateurs = [iter(GénérateurGrilleVide(base))]
-        while len(itérateurs) != 0:
-            k = len(itérateurs) - 1
-            it = itérateurs[-1]
+        # Pour le palier initial, on produit une grille vide ex-nihilo
+        niveaux[0].générateur = enumerate(GénérateurGrilleVide(base))
+        k = 0
+        while k >= 0:
+            it = niveaux[k].générateur
             try:
                 # Code appartenent au palier 'k'
-                code = next(it)
-                if k < len(producteurs):
-                    enregistreurs[k].ajouter(code)
-                    itérateurs.append(producteurs[k].itérer(code))
+                index, code = next(it)
+                niveaux[k].index = index
+                niveaux[k].code = code
+
+                if k < nb_cases:
+                    niveaux[k].ajouter(code)
+                    k += 1
+                    niveaux[k].générateur = enumerate(
+                        niveaux[k].producteur.itérer(code))
                 else:
-                    grille = producteurs[-1].codec.décoder(code)
+                    grille = niveaux[k].producteur.codec.décoder(code)
                     analyse = Analyseur(grille)
                     for r in analyse.régions.values():
                         if r.est_anormal():
                             break
                     else:
-                        logging.info(code)
-                        enregistreurs[-1].ajouter(code)
+                        niveaux[k].ajouter(code)
+                        logging.debug(construire_chemin(niveaux))
             except StopIteration:
-                itérateurs.pop()
+                k -= 1
 
-        for e in enregistreurs:
-            e.clore()
+        # Enfin, on finalise tous les fichiers enregistrés
+        for n in niveaux:
+            n.clore()
 
 
 if __name__ == "__main__":

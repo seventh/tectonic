@@ -120,6 +120,9 @@ class GénérateurGrilleVide:
 
 
 class ProducteurProgrès:
+    """Produit des grilles *pour* un certain palier, à partir d'un code issu
+    du palier précédent
+    """
 
     def __init__(self, progrès):
         self.palier = progrès.palier
@@ -131,7 +134,7 @@ class ProducteurProgrès:
         grille = self.codec.décoder(code)
         analyseur = Analyseur(grille)
 
-        i = self.palier
+        i = self.palier - 1
         h, l = grille.base.en_position(i)
 
         # Régions à compléter
