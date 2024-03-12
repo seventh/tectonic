@@ -45,7 +45,7 @@ class Écrivain:
 
     FORMAT = 1
 
-    def __init__(self, chemin, base, bloc=0):
+    def __init__(self, chemin, base, bloc=0, *, reprise=False):
         """Prépare une nouvelle sortie
 
         'bloc' détermine le nombre de codes par bloc. Si < 1, on cherchera
@@ -54,17 +54,28 @@ class Écrivain:
         assert bloc >= 0, "Valeur positive ou nulle"
         self.bloc = bloc
 
-        self.sortie = open(chemin, "wb")
+        if reprise and os.path.exists(chemin):
+            self.sortie = open(chemin, "r+b")
 
-        # Écriture de l'en-tête
-        self.sortie.write(b"TECTONIC\x01")
-        self.sortie.write(
-            struct.pack(">BBB", base.hauteur, base.largeur, base.maximum))
+            # Lecture du nombre de codes
+            self.sortie.seek(12, os.SEEK_SET)
+            tampon = self.sortie.read(4)
+            self._nb_codes = struct.unpack(">L", tampon)[0]
 
-        # Réservation de 4 octets pour la taille
-        self.sortie.write(b"\x00" * 4)
+            # Repositionnement de la tête d'écriture
+            self.sortie.seek(-1, os.SEEK_END)
+        else:
+            self.sortie = open(chemin, "wb")
 
-        self._nb_codes = 0
+            # Écriture de l'en-tête
+            self.sortie.write(b"TECTONIC\x01")
+            self.sortie.write(
+                struct.pack(">BBB", base.hauteur, base.largeur, base.maximum))
+
+            # Réservation de 4 octets pour la taille
+            self.sortie.write(b"\x00" * 4)
+
+            self._nb_codes = 0
 
         # Le cache est par taille de code (en octets)
         self._nb_codes_en_attente = 0

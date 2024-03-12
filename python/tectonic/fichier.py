@@ -24,5 +24,5 @@ def lecteur(chemin):
     return retour
 
 
-def écrivain(chemin, base):
-    return Écrivain001(chemin, base, bloc=2**16)
+def écrivain(chemin, base, *, reprise=False):
+    return Écrivain001(chemin, base, 2**16, reprise=reprise)
